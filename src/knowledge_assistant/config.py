@@ -9,15 +9,19 @@ with unrelated environment variables.
 """
 
 import re
-from typing import Literal
+from typing import Annotated, Literal, Self
 
-from pydantic import field_validator
+from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # PostgreSQL text-search configuration names are lowercase identifiers
 # ('english', 'spanish', 'simple', ...) — the SAME pattern migration 0003
 # enforces before interpolating the name into DDL.
 _FTS_LANGUAGE_PATTERN = re.compile(r"^[a-z_]+$")
+PositiveInt = Annotated[int, Field(gt=0)]
+PositiveFloat = Annotated[float, Field(gt=0)]
+NonNegativeInt = Annotated[int, Field(ge=0)]
+NonNegativeFloat = Annotated[float, Field(ge=0)]
 
 
 class Settings(BaseSettings):
@@ -44,8 +48,8 @@ class Settings(BaseSettings):
     # Must match the pgvector column (ADR-0001). The shipped schema is
     # vector(768): any other dimension fails fast at startup unless you
     # regenerate the migration (and SCHEMA_EMBEDDING_DIMENSION with it).
-    embedding_dimension: int | None = None
-    embedding_timeout_seconds: float = 60.0
+    embedding_dimension: PositiveInt | None = None
+    embedding_timeout_seconds: PositiveFloat = 60.0
 
     # --- LLM (answer generation) ------------------------------------------
     # Provider-driven defaults are resolved in bootstrap.py; leave these
@@ -54,17 +58,18 @@ class Settings(BaseSettings):
     llm_model: str | None = None
     llm_base_url: str | None = None  # OpenAI-compatible endpoint
     llm_api_key: str | None = None  # Ollama ignores it; OpenAI requires a real key
-    llm_timeout_seconds: float = 120.0
-    llm_max_retries: int = 3
+    llm_timeout_seconds: PositiveFloat = 120.0
+    llm_max_retries: PositiveInt = 3
+    llm_output_retries: PositiveInt = 2
 
     # --- RAG behavior ------------------------------------------------------
-    chunk_max_chars: int = 800
-    chunk_overlap_chars: int = 120
-    retrieval_top_k: int = 5
+    chunk_max_chars: PositiveInt = 800
+    chunk_overlap_chars: NonNegativeInt = 120
+    retrieval_top_k: Annotated[int, Field(ge=1, le=20)] = 5
     # How many candidates each retrieval leg fetches before RRF fusion.
-    retrieval_fetch_limit: int = 20
+    retrieval_fetch_limit: PositiveInt = 20
     # RRF constant k (standard value from the original paper).
-    rrf_k: int = 60
+    rrf_k: PositiveInt = 60
     # PostgreSQL text search configuration used by the full-text leg — any
     # regconfig name: 'english', 'spanish', 'simple', ... `simple` is
     # language-agnostic (no stemming, no stop words): the pragmatic choice
@@ -85,14 +90,14 @@ class Settings(BaseSettings):
     # corpus-size dependent. We accept this deliberately: for a knowledge
     # base, an honest refusal beats a shaky answer. The real fix is an
     # LLM-as-judge grader node (blueprinted in docs/03, roadmap Phase 2).
-    min_relevance_score: float = 0.028
+    min_relevance_score: NonNegativeFloat = 0.028
 
     # --- Ingestion ---------------------------------------------------------
     # Uploads larger than this are rejected with HTTP 413 before buffering.
-    max_upload_size_mb: float = 10.0
+    max_upload_size_mb: PositiveFloat = 10.0
     # Chunks are embedded in batches of this size: one giant call is both a
     # timeout risk and a whole-ingestion single point of failure.
-    embedding_batch_size: int = 32
+    embedding_batch_size: PositiveInt = 32
 
     # --- Security ----------------------------------------------------------
     # Optional API key: when set, /api/v1/* requires the X-API-Key header.
@@ -121,6 +126,23 @@ class Settings(BaseSettings):
                 )
                 raise ValueError(msg)
         return value
+
+    @field_validator("api_key")
+    @classmethod
+    def _reject_empty_api_key(cls, value: str | None) -> str | None:
+        if value is not None and not value.strip():
+            raise ValueError("api_key cannot be empty or whitespace when authentication is enabled")
+        return value
+
+    @model_validator(mode="after")
+    def _validate_related_limits(self) -> Self:
+        if self.chunk_overlap_chars >= self.chunk_max_chars:
+            raise ValueError("chunk_overlap_chars must be smaller than chunk_max_chars")
+        if self.retrieval_fetch_limit < self.retrieval_top_k:
+            raise ValueError(
+                "retrieval_fetch_limit must be greater than or equal to retrieval_top_k"
+            )
+        return self
 
 
 def get_settings() -> Settings:

@@ -165,7 +165,7 @@ class ResolvedEmbeddingConfig:
 
 def _resolve_embedding_config(settings: Settings) -> ResolvedEmbeddingConfig:
     defaults = _EMBEDDING_PROVIDER_DEFAULTS[settings.embedding_provider]
-    if settings.embedding_provider == "openai" and not settings.embedding_api_key:
+    if settings.embedding_provider == "openai" and not settings.embedding_api_key.strip():
         msg = "KA_EMBEDDING_API_KEY is required when KA_EMBEDDING_PROVIDER=openai"
         raise ValueError(msg)
     return ResolvedEmbeddingConfig(
@@ -208,7 +208,7 @@ def _build_answer_generator(settings: Settings) -> tuple[AnswerGenerator, httpx.
     """
     defaults = _LLM_PROVIDER_DEFAULTS[settings.llm_provider]
     api_key = settings.llm_api_key or defaults["api_key"]
-    if settings.llm_provider == "openai" and not api_key:
+    if settings.llm_provider == "openai" and not api_key.strip():
         msg = "KA_LLM_API_KEY is required when KA_LLM_PROVIDER=openai"
         raise ValueError(msg)
     # KA_LLM_TIMEOUT_SECONDS becomes the client timeout: an unbounded LLM
@@ -220,6 +220,7 @@ def _build_answer_generator(settings: Settings) -> tuple[AnswerGenerator, httpx.
         api_key=api_key,
         http_client=client,
         max_retries=settings.llm_max_retries,
+        output_retries=settings.llm_output_retries,
     )
     return generator, client
 

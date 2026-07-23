@@ -23,6 +23,7 @@ from fastapi import (
     UploadFile,
     status,
 )
+from pydantic import StringConstraints
 
 from knowledge_assistant import bootstrap
 from knowledge_assistant.bootstrap import Container
@@ -51,6 +52,10 @@ router = APIRouter(
 # Read one extra byte beyond the limit to detect overflow without buffering
 # the whole upload: a 10 MB cap never costs more than 10 MB + 1 B of memory.
 OVERFLOW_PROBE_BYTES = 1
+DocumentTitle = Annotated[
+    str,
+    StringConstraints(strip_whitespace=True, min_length=1, max_length=200),
+]
 
 
 @router.post("", status_code=status.HTTP_201_CREATED, response_model=DocumentResponse)
@@ -59,7 +64,10 @@ async def ingest_document(
     use_case: Annotated[IngestDocument, Depends(bootstrap.provide_ingest_document)],
     app_container: Annotated[Container, Depends(bootstrap.get_container)],
     response: Response,
-    title: Annotated[str | None, Form(description="Optional human title")] = None,
+    title: Annotated[
+        DocumentTitle | None,
+        Form(description="Optional human title (max 200 characters)"),
+    ] = None,
 ) -> DocumentResponse:
     """Ingest a document. Idempotent by content: re-uploading identical
     content returns the EXISTING document with 200 (instead of a 201 twin).

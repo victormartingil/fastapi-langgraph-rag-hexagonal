@@ -12,7 +12,7 @@ What is covered:
   no retry; exhausted transient retries → EmbeddingProviderUnavailableError),
 - the LLM adapter's error doctrine: exhausted transient retries →
   GenerationUnavailableError (503 signal), permanent errors propagate loud,
-- citation resolution, including dropping out-of-range citation indices.
+- citation resolution and retry/failure for invalid citation indices.
 
 What is NOT covered, by design: pydantic-ai's internal agent loop (tool
 execution, validation retries). That machinery belongs to the vendor SDK; we
@@ -29,7 +29,10 @@ from pydantic_ai.exceptions import ModelHTTPError
 from knowledge_assistant.assistant.adapters.outbound.llm.pydantic_ai import (
     PydanticAiAnswerGenerator,
 )
-from knowledge_assistant.assistant.domain.exceptions import GenerationUnavailableError
+from knowledge_assistant.assistant.domain.exceptions import (
+    GenerationUnavailableError,
+    InvalidModelOutputError,
+)
 from knowledge_assistant.assistant.domain.models import RetrievedChunk
 from knowledge_assistant.knowledge_base.adapters.outbound.embeddings.ollama import (
     OllamaEmbeddingProvider,
@@ -269,6 +272,7 @@ def make_generator(
     *,
     base_url: str = "http://llm.test/v1",
     max_retries: int = 1,
+    output_retries: int = 1,
 ) -> PydanticAiAnswerGenerator:
     return PydanticAiAnswerGenerator(
         model_name="test-model",
@@ -276,6 +280,7 @@ def make_generator(
         api_key="test-key",
         http_client=httpx.AsyncClient(),  # owned by the container in production
         max_retries=max_retries,
+        output_retries=output_retries,
     )
 
 
@@ -296,22 +301,34 @@ class TestPydanticAiAnswerGenerator:
         # The prompt carried the evidence as a NUMBERED source, plus content.
         sent = json.loads(route.calls[0].request.content)
         prompt = sent["messages"][-1]["content"]
-        assert "[1]" in prompt
+        assert '"source_index": 1' in prompt
+        assert "UNTRUSTED_DATA_JSON_START" in prompt
         assert "Return window?" in prompt
         assert "return any product within 30 days" in prompt
 
     @respx.mock
-    async def test_drops_out_of_range_citation_indices(self) -> None:
-        # The model cites a chunk that does not exist: an out-of-range index
-        # is the index-based equivalent of a hallucinated citation — dropped.
-        respx.post("http://llm.test/v1/chat/completions").mock(
+    async def test_retries_then_rejects_out_of_range_citation_indices(self) -> None:
+        route = respx.post("http://llm.test/v1/chat/completions").mock(
             return_value=completion_response("Invented citation test.", [1, 99])
         )
         generator = make_generator()
 
-        answer = await generator.generate("q?", [make_chunk("c1")])
+        with pytest.raises(InvalidModelOutputError, match="valid grounded answer"):
+            await generator.generate("q?", [make_chunk("c1")])
 
-        assert [s.chunk_id for s in answer.sources] == ["c1"]
+        assert route.call_count == 2
+
+    @respx.mock
+    async def test_retries_then_rejects_an_answer_without_citations(self) -> None:
+        route = respx.post("http://llm.test/v1/chat/completions").mock(
+            return_value=completion_response("Unsupported assertion.", [])
+        )
+        generator = make_generator()
+
+        with pytest.raises(InvalidModelOutputError, match="valid grounded answer"):
+            await generator.generate("q?", [make_chunk("c1")])
+
+        assert route.call_count == 2
 
     @respx.mock
     async def test_retries_transient_llm_errors_then_succeeds(self) -> None:

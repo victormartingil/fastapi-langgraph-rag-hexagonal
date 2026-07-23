@@ -22,6 +22,7 @@ from knowledge_assistant.assistant.application.policies import REFUSAL_MESSAGE
 from knowledge_assistant.assistant.application.ports import KnowledgeSearch
 from knowledge_assistant.assistant.domain.exceptions import (
     EmptyQuestionError,
+    InvalidQuestionError,
     RetrievalUnavailableError,
 )
 from knowledge_assistant.assistant.domain.models import Answer, RetrievedChunk, Source
@@ -47,6 +48,19 @@ def make_answer(chunks_count: int = 1) -> Answer:
             for i in range(chunks_count)
         ),
     )
+
+
+def test_affirmative_answer_requires_at_least_one_source() -> None:
+    with pytest.raises(ValueError, match="at least one source"):
+        Answer(text="Unsupported claim", sources=())
+
+
+def test_answer_invariants_reject_blank_text_and_sourced_refusal() -> None:
+    source = make_answer().sources[0]
+    with pytest.raises(ValueError, match="cannot be empty"):
+        Answer(text=" ", sources=(source,))
+    with pytest.raises(ValueError, match="refusal"):
+        Answer(text="No answer", sources=(source,), is_refusal=True)
 
 
 class TestNodes:
@@ -129,6 +143,14 @@ class TestAskQuestionOverCompiledGraph:
         use_case = self.build_use_case(FakeKnowledgeSearch([]), FakeAnswerGenerator(make_answer()))
         with pytest.raises(EmptyQuestionError):
             await use_case.execute("   ")
+
+    async def test_question_and_top_k_domain_limits_apply_without_http(self) -> None:
+        use_case = self.build_use_case(FakeKnowledgeSearch([]), FakeAnswerGenerator(make_answer()))
+
+        with pytest.raises(InvalidQuestionError, match="at most"):
+            await use_case.execute("x" * 4_001)
+        with pytest.raises(InvalidQuestionError, match="top_k"):
+            await use_case.execute("valid question", top_k=21)
 
     async def test_retrieval_outage_surfaces_as_a_domain_signal(self) -> None:
         """A retriever that cannot reach its backend raises

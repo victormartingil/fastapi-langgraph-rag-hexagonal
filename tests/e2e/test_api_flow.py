@@ -250,6 +250,13 @@ class TestApiKeyAuth:
         assert body["correlation_id"] == response.headers["X-Correlation-ID"]
         assert any(error["loc"] == ["body", "question"] for error in body["errors"])
 
+    @pytest.mark.parametrize("question", ["   ", "x" * 4_001])
+    async def test_question_limits_return_422(self, client: AsyncClient, question: str) -> None:
+        response = await client.post("/api/v1/chat", json={"question": question})
+
+        assert response.status_code == 422
+        assert response.json()["error"] == "RequestValidationError"
+
     async def test_request_with_the_key_passes(self, authed_client: AsyncClient) -> None:
         response = await authed_client.get(
             "/api/v1/documents", headers={"X-API-Key": "test-secret"}

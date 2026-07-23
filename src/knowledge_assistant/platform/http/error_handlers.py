@@ -27,6 +27,8 @@ from fastapi.responses import JSONResponse
 from knowledge_assistant.assistant.domain.exceptions import (
     EmptyQuestionError,
     GenerationUnavailableError,
+    InvalidModelOutputError,
+    InvalidQuestionError,
     RetrievalUnavailableError,
 )
 from knowledge_assistant.knowledge_base.domain.exceptions import (
@@ -34,6 +36,7 @@ from knowledge_assistant.knowledge_base.domain.exceptions import (
     DocumentNotFoundError,
     EmbeddingProviderUnavailableError,
     EmptyDocumentError,
+    InvalidDocumentMetadataError,
     KnowledgeBaseUnavailableError,
     TextExtractionError,
     UnsupportedFileTypeError,
@@ -50,6 +53,9 @@ _STATUS_BY_ERROR: dict[type[DomainError], int] = {
     EmptyDocumentError: 422,
     TextExtractionError: 422,
     EmptyQuestionError: 422,
+    InvalidQuestionError: 422,
+    InvalidDocumentMetadataError: 422,
+    InvalidModelOutputError: 502,
     RetrievalUnavailableError: 503,
     GenerationUnavailableError: 503,
     EmbeddingProviderUnavailableError: 503,

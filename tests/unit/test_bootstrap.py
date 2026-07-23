@@ -31,6 +31,32 @@ class TestFtsLanguageValidation:
         assert Settings(fts_language="simple").fts_language == "simple"
 
 
+class TestRelatedSettingsValidation:
+    @pytest.mark.parametrize(
+        ("overrides", "message"),
+        [
+            ({"chunk_max_chars": 0}, "greater than 0"),
+            (
+                {"chunk_max_chars": 100, "chunk_overlap_chars": 100},
+                "chunk_overlap_chars",
+            ),
+            (
+                {"retrieval_top_k": 10, "retrieval_fetch_limit": 5},
+                "retrieval_fetch_limit",
+            ),
+            ({"embedding_batch_size": 0}, "greater than 0"),
+            ({"llm_max_retries": 0}, "greater than 0"),
+            ({"llm_timeout_seconds": 0}, "greater than 0"),
+            ({"api_key": "   "}, "api_key"),
+        ],
+    )
+    def test_invalid_settings_are_rejected(
+        self, overrides: dict[str, object], message: str
+    ) -> None:
+        with pytest.raises(ValidationError, match=message):
+            Settings(**overrides)  # type: ignore[arg-type]
+
+
 class TestEmbeddingDimensionGuard:
     def test_mismatched_dimension_refuses_to_start(self) -> None:
         """A 1536-dim provider against the vector(768) schema is a startup

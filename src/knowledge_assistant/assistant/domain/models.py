@@ -40,3 +40,12 @@ class Answer:
 
     text: str
     sources: tuple[Source, ...]
+    is_refusal: bool = False
+
+    def __post_init__(self) -> None:
+        if not self.text.strip():
+            raise ValueError("Answer text cannot be empty")
+        if self.is_refusal and self.sources:
+            raise ValueError("A refusal cannot carry affirmative sources")
+        if not self.is_refusal and not self.sources:
+            raise ValueError("A non-refusal answer requires at least one source")
