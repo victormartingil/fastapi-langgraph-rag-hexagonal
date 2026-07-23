@@ -49,6 +49,7 @@ def make_retrieve_node(search: KnowledgeSearch) -> Node:
     async def retrieve(state: RagState) -> dict[str, object]:
         chunks = await search.search(state["question"], limit=state["top_k"])
         return {"retrieved_chunks": chunks}
+
     return retrieve
 ```
 

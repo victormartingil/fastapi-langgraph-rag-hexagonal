@@ -79,7 +79,7 @@ async def test_no_relevant_evidence_produces_an_honest_refusal(self) -> None:
     answer = await self.build_use_case(retriever, generator).execute("...")
 
     assert answer.text == REFUSAL_MESSAGE
-    assert generator.calls == []   # the LLM was never even called
+    assert generator.calls == []  # the LLM was never even called
 ```
 
 Why not `unittest.mock`? A mock asserts *that* a method was called with
