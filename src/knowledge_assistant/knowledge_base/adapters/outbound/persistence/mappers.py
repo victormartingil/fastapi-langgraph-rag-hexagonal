@@ -11,8 +11,11 @@ from knowledge_assistant.knowledge_base.adapters.outbound.persistence.models imp
 )
 from knowledge_assistant.knowledge_base.application.read_models import DocumentSummary
 from knowledge_assistant.knowledge_base.domain.models import Chunk, Document
-from knowledge_assistant.knowledge_base.domain.value_objects import ChunkText, DocumentId
-from knowledge_assistant.shared_kernel.value_objects import EmbeddingVector
+from knowledge_assistant.knowledge_base.domain.value_objects import (
+    ChunkText,
+    DocumentId,
+    EmbeddingVector,
+)
 
 
 def chunk_to_model(chunk: Chunk, document_id: DocumentId) -> ChunkModel:

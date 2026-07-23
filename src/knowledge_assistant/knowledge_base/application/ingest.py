@@ -33,8 +33,7 @@ from knowledge_assistant.knowledge_base.domain.models import (
     Document,
     validate_document_metadata,
 )
-from knowledge_assistant.knowledge_base.domain.value_objects import DocumentId
-from knowledge_assistant.shared_kernel.value_objects import EmbeddingVector
+from knowledge_assistant.knowledge_base.domain.value_objects import DocumentId, EmbeddingVector
 
 
 @dataclass(frozen=True, slots=True)

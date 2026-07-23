@@ -44,8 +44,8 @@ from knowledge_assistant.knowledge_base.application.queries import SearchKnowled
 from knowledge_assistant.knowledge_base.domain.exceptions import (
     EmbeddingProviderUnavailableError,
 )
+from knowledge_assistant.knowledge_base.domain.value_objects import EmbeddingVector
 from knowledge_assistant.main import create_app
-from knowledge_assistant.shared_kernel.value_objects import EmbeddingVector
 from tests.unit.fakes import FakeEmbeddingProvider
 
 pytestmark = pytest.mark.e2e

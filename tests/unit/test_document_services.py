@@ -22,8 +22,7 @@ from knowledge_assistant.knowledge_base.domain.exceptions import (
     UnsupportedFileTypeError,
 )
 from knowledge_assistant.knowledge_base.domain.models import Document
-from knowledge_assistant.knowledge_base.domain.value_objects import DocumentId
-from knowledge_assistant.shared_kernel.value_objects import EmbeddingVector
+from knowledge_assistant.knowledge_base.domain.value_objects import DocumentId, EmbeddingVector
 from tests.unit.fakes import (
     FakeDocumentRepository,
     FakeEmbeddingProvider,

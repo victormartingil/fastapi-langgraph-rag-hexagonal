@@ -29,7 +29,11 @@ from knowledge_assistant.knowledge_base.adapters.outbound.retrieval.pgvector_hyb
     PgVectorHybridRetriever,
 )
 from knowledge_assistant.knowledge_base.domain.models import Chunk, Document
-from knowledge_assistant.knowledge_base.domain.value_objects import ChunkText, DocumentId
+from knowledge_assistant.knowledge_base.domain.value_objects import (
+    ChunkText,
+    DocumentId,
+    EmbeddingVector,
+)
 from knowledge_assistant.platform.database.schema_meta import (
     assert_fts_language_parity,
 )
@@ -38,7 +42,6 @@ from knowledge_assistant.platform.database.session import (
     create_session_factory,
     session_scope,
 )
-from knowledge_assistant.shared_kernel.value_objects import EmbeddingVector
 from tests.conftest import _run_migrations
 from tests.unit.fakes import FakeEmbeddingProvider
 

@@ -12,8 +12,11 @@ from knowledge_assistant.knowledge_base.adapters.outbound.persistence.mappers im
     document_to_model,
 )
 from knowledge_assistant.knowledge_base.domain.models import Chunk, Document
-from knowledge_assistant.knowledge_base.domain.value_objects import ChunkText, DocumentId
-from knowledge_assistant.shared_kernel.value_objects import EmbeddingVector
+from knowledge_assistant.knowledge_base.domain.value_objects import (
+    ChunkText,
+    DocumentId,
+    EmbeddingVector,
+)
 
 
 def make_chunk(with_embedding: bool = True) -> Chunk:

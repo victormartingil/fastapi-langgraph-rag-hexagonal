@@ -23,6 +23,7 @@ from tenacity import (
 from knowledge_assistant.knowledge_base.domain.exceptions import (
     EmbeddingProviderUnavailableError,
 )
+from knowledge_assistant.knowledge_base.domain.value_objects import EmbeddingVector
 from knowledge_assistant.platform.http.resilience import (
     is_transient_http_error,
 )
@@ -30,7 +31,6 @@ from knowledge_assistant.platform.observability.telemetry import (
     observe_operation,
     record_retry,
 )
-from knowledge_assistant.shared_kernel.value_objects import EmbeddingVector
 
 logger = structlog.get_logger()
 
