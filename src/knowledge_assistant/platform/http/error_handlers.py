@@ -31,13 +31,15 @@ from knowledge_assistant.assistant.domain.exceptions import (
     InvalidQuestionError,
     RetrievalUnavailableError,
 )
+from knowledge_assistant.knowledge_base.application.exceptions import (
+    KnowledgeBaseUnavailableError,
+)
 from knowledge_assistant.knowledge_base.domain.exceptions import (
     ConcurrentIngestionError,
     DocumentNotFoundError,
     EmbeddingProviderUnavailableError,
     EmptyDocumentError,
     InvalidDocumentMetadataError,
-    KnowledgeBaseUnavailableError,
     TextExtractionError,
     UnsupportedFileTypeError,
 )

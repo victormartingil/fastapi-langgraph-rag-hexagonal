@@ -13,7 +13,8 @@ retries on) the model's response. A free-text "the answer is ... (sources:
 Why INDEX-BASED citations: sources are presented to the model as [1], [2], ...
 and the model cites those small integers instead of echoing raw chunk UUIDs.
 Small integers are far harder to hallucinate or mangle than 36-character
-ids — and out-of-range indices are trivially detectable and dropped.
+ids — and missing or out-of-range indices are rejected, retried by the model
+adapter, and ultimately surfaced as a typed 502 rather than a false success.
 
 Resilience: the LLM call is retried with exponential backoff + jitter
 (tenacity) — and tenacity is the SINGLE retry authority. The underlying

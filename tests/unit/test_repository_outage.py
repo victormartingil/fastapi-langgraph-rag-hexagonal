@@ -17,7 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from knowledge_assistant.knowledge_base.adapters.outbound.persistence.repository import (
     SqlAlchemyDocumentRepository,
 )
-from knowledge_assistant.knowledge_base.domain.exceptions import (
+from knowledge_assistant.knowledge_base.application.exceptions import (
     KnowledgeBaseUnavailableError,
 )
 from knowledge_assistant.knowledge_base.domain.models import Document

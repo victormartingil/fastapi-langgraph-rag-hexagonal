@@ -52,11 +52,13 @@ import httpx
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from knowledge_assistant.knowledge_base.application.exceptions import (
+    KnowledgeBaseUnavailableError,
+)
 from knowledge_assistant.knowledge_base.application.ports import EmbeddingProvider
 from knowledge_assistant.knowledge_base.application.read_models import KnowledgeHit
 from knowledge_assistant.knowledge_base.domain.exceptions import (
     EmbeddingProviderUnavailableError,
-    KnowledgeBaseUnavailableError,
 )
 from knowledge_assistant.platform.database.session import is_db_outage_error
 from knowledge_assistant.platform.http.resilience import (

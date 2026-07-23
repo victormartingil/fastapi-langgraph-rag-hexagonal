@@ -55,7 +55,10 @@ The endpoint must be the OTLP/HTTP base URL, without `/v1/traces` or
 `platform/observability` owns provider setup and instrumentation lifecycle.
 Domain and application code cannot import OpenTelemetry, enforced by the
 architecture contracts. Adapter-level spans are closed under success, error,
-and cancellation. Exporters flush during graceful shutdown.
+and cancellation. Error spans export only the exception class: exception
+messages and stack traces are deliberately disabled because they may contain
+filenames, provider payloads, questions, or document fragments. Exporters
+flush during graceful shutdown.
 
 An unavailable collector does not change a RAG response into an application
 error: OTLP exporting is asynchronous and reports export failures through the

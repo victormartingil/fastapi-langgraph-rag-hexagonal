@@ -70,13 +70,13 @@ cited**:
 
 ```json
 {
-  "answer": "After two months, a refund is no longer available; store credit may be offered up to day 90.",
+  "answer": "After two months, a refund is no longer available. Up to day 90, store credit may be offered at the company's discretion only when the item is defective or was shipped incorrectly.",
   "sources": [
     {
       "document_id": "…",
       "document_title": "Return Policy",
       "chunk_id": "…",
-      "excerpt": "Refunds are available within 30 days…",
+      "excerpt": "Between day 31 and day 90, we may offer store credit at our discretion, and only for items that are defective or were shipped incorrectly.",
       "score": 0.0325
     }
   ]

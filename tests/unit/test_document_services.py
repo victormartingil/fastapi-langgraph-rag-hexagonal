@@ -7,6 +7,9 @@ and no network.
 
 import pytest
 
+from knowledge_assistant.knowledge_base.application.exceptions import (
+    EmbeddingBatchCardinalityError,
+)
 from knowledge_assistant.knowledge_base.application.ingest import IngestDocument
 from knowledge_assistant.knowledge_base.application.queries import (
     GetDocument,
@@ -155,7 +158,7 @@ class TestIngestDocument:
         with pytest.raises(ConcurrentIngestionError):
             await use_case.execute("raced.md", b"x")
 
-    async def test_wrong_provider_dimension_fails_loudly_on_first_batch(self) -> None:
+    async def test_wrong_provider_dimension_fails_loudly(self) -> None:
         """The startup guard validates configuration against the schema; this
         validates REALITY against configuration (ADR-0001)."""
         use_case = IngestDocument(
@@ -167,6 +170,44 @@ class TestIngestDocument:
         )
 
         with pytest.raises(EmbeddingDimensionMismatchError, match="8-dimensional vectors"):
+            await use_case.execute("a.md", b"x")
+
+    async def test_every_vector_dimension_is_validated(self) -> None:
+        class MixedDimensionProvider:
+            async def embed(self, texts: list[str]) -> list[EmbeddingVector]:
+                return [
+                    EmbeddingVector((0.5,) * (768 if index == 0 else 8))
+                    for index, _ in enumerate(texts)
+                ]
+
+        use_case = IngestDocument(
+            open_repository=fake_repository_scope(FakeDocumentRepository()),
+            embedding_provider=MixedDimensionProvider(),
+            text_extractors=[FakeTextExtractor(text=LONG_TEXT)],
+            chunk_max_chars=30,
+            chunk_overlap_chars=0,
+            expected_embedding_dimension=768,
+            embedding_model_name="nomic-embed-text",
+        )
+
+        with pytest.raises(EmbeddingDimensionMismatchError, match="8-dimensional vectors"):
+            await use_case.execute("a.md", b"x")
+
+    async def test_provider_must_return_one_vector_per_input(self) -> None:
+        class ShortBatchProvider:
+            async def embed(self, texts: list[str]) -> list[EmbeddingVector]:
+                return [EmbeddingVector((0.5,) * 8) for _ in texts[:-1]]
+
+        use_case = IngestDocument(
+            open_repository=fake_repository_scope(FakeDocumentRepository()),
+            embedding_provider=ShortBatchProvider(),
+            text_extractors=[FakeTextExtractor(text=LONG_TEXT)],
+            chunk_max_chars=30,
+            chunk_overlap_chars=0,
+            embedding_batch_size=3,
+        )
+
+        with pytest.raises(EmbeddingBatchCardinalityError, match="2 vectors for 3 input"):
             await use_case.execute("a.md", b"x")
 
     async def test_embeddings_are_batched(self) -> None:

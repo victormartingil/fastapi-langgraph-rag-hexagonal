@@ -23,6 +23,11 @@ class PdfTextExtractor:
 
     def extract(self, file_name: str, data: bytes) -> str:
         with observe_operation("extraction", {"file.type": "pdf"}):
+            # pypdf logs the first bytes of an invalid header before raising.
+            # Reject it at our boundary so uploaded content never reaches the
+            # vendor logger. A conforming PDF starts with this signature.
+            if not data.startswith(b"%PDF-"):
+                raise TextExtractionError(file_name)
             try:
                 reader = PdfReader(io.BytesIO(data))
                 pages = [(page.extract_text() or "") for page in reader.pages]

@@ -208,8 +208,8 @@ source_modules = ["knowledge_assistant.assistant"]
 forbidden_modules = ["knowledge_assistant.knowledge_base"]
 ignore_imports = [
     "knowledge_assistant.assistant.adapters.inbound.http.router -> knowledge_assistant.bootstrap",
+    "knowledge_assistant.assistant.adapters.outbound.knowledge.in_process -> knowledge_assistant.knowledge_base.application.exceptions",
     "knowledge_assistant.assistant.adapters.outbound.knowledge.in_process -> knowledge_assistant.knowledge_base.application.queries",
-    "knowledge_assistant.assistant.adapters.outbound.knowledge.in_process -> knowledge_assistant.knowledge_base.domain.exceptions",
 ]
 
 # The domain is PURE: no frameworks, no I/O, no vendors. If this contract

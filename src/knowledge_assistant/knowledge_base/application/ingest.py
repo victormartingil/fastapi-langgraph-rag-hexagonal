@@ -14,6 +14,9 @@ from dataclasses import dataclass
 
 from anyio import to_thread
 
+from knowledge_assistant.knowledge_base.application.exceptions import (
+    EmbeddingBatchCardinalityError,
+)
 from knowledge_assistant.knowledge_base.application.ports import (
     EmbeddingProvider,
     OpenRepository,
@@ -172,16 +175,18 @@ class IngestDocument:
         for start in range(0, len(texts), self._embedding_batch_size):
             batch = texts[start : start + self._embedding_batch_size]
             vectors = await self._embedding_provider.embed(batch)
-            if start == 0:
-                self._assert_dimension(vectors[0])
+            if len(vectors) != len(batch):
+                raise EmbeddingBatchCardinalityError(len(batch), len(vectors))
+            for vector in vectors:
+                self._assert_dimension(vector)
             embeddings.extend(vectors)
         return embeddings
 
     def _assert_dimension(self, vector: EmbeddingVector) -> None:
         """The startup guard checks CONFIGURATION against the schema; this
-        checks REALITY against configuration — the provider's first actual
-        vector must have the configured dimension, or persisting it would
-        corrupt every future similarity search (ADR-0001)."""
+        checks REALITY against configuration — every provider vector must
+        have the configured dimension, or persisting it would corrupt future
+        similarity search (ADR-0001)."""
         expected = self._expected_embedding_dimension
         if expected is not None and vector.dimension != expected:
             raise EmbeddingDimensionMismatchError(

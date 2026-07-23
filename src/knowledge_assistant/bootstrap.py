@@ -51,6 +51,9 @@ from knowledge_assistant.knowledge_base.adapters.outbound.persistence.repository
 from knowledge_assistant.knowledge_base.adapters.outbound.retrieval.pgvector_hybrid import (
     PgVectorHybridRetriever,
 )
+from knowledge_assistant.knowledge_base.application.exceptions import (
+    KnowledgeBaseUnavailableError,
+)
 from knowledge_assistant.knowledge_base.application.ingest import IngestDocument
 from knowledge_assistant.knowledge_base.application.ports import (
     DocumentRepository,
@@ -62,9 +65,6 @@ from knowledge_assistant.knowledge_base.application.queries import (
     GetDocument,
     ListDocuments,
     SearchKnowledge,
-)
-from knowledge_assistant.knowledge_base.domain.exceptions import (
-    KnowledgeBaseUnavailableError,
 )
 from knowledge_assistant.platform.database.session import (
     create_engine,
