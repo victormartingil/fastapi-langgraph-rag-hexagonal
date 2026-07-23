@@ -292,6 +292,18 @@ currently **100%**. The AI adapters (embeddings, LLM) are unit-tested with
 respx-mocked HTTP; the database adapters are covered by integration/e2e tests
 against real infrastructure, where coverage is meaningful.
 
+## RAG evaluation
+
+Model quality is not treated as a unit test. The separate
+[`evals/`](evals/) harness contains a versioned 30-case corpus, deterministic
+metric tests, lexical baseline, optional live Ollama dense/hybrid comparison,
+and optional full-API generation evaluation.
+
+The committed lexical baseline is **Recall@5 0.864 / MRR 0.787**. Regression
+gates allow at most a 5 percentage-point Recall@5 drop or 0.05 MRR drop.
+Live reports additionally measure abstention accuracy, citation validity,
+expected fact-phrase coverage, and latency p50/p95.
+
 CI (`.github/workflows/ci.yml`): lint + types + unit/architecture on every
 push; integration + e2e on pull requests. Pre-commit hooks mirror CI:
 `uv run pre-commit install`.
@@ -329,15 +341,14 @@ e.g. `feat(chat): add grading node`.
 
 ## Roadmap (explicitly Phase 2 — NOT implemented here)
 
-1. **RAG evaluation in CI** with a golden dataset (DeepEval or Ragas).
-2. **LLM observability**: OpenTelemetry (GenAI semantic conventions) +
+1. **LLM observability**: OpenTelemetry (GenAI semantic conventions) +
    Langfuse in docker-compose.
-3. **Ad-hoc document mode** with a LangGraph router node: small attached
+2. **Ad-hoc document mode** with a LangGraph router node: small attached
    document → context stuffing (no vectorization); large → ephemeral in-memory
    chunk+embed. Decision criterion: context-window fit.
-4. **LangGraph Postgres checkpointer** for durable execution and multi-turn
+3. **LangGraph Postgres checkpointer** for durable execution and multi-turn
    conversation memory.
-5. **Platform features**: JWT/OIDC auth (an optional shared API key already
+4. **Platform features**: JWT/OIDC auth (an optional shared API key already
    exists), rate limiting, Kafka events, SSE streaming, MCP server exposing
    the retriever as a tool.
 

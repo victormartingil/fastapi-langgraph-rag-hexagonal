@@ -116,6 +116,7 @@ addopts = ["--import-mode=importlib"]
 markers = [
     "integration: tests that need Docker (testcontainers, real PostgreSQL+pgvector)",
     "e2e: full HTTP round-trip tests that need Docker (testcontainers)",
+    "eval: deterministic tests for datasets, metrics, and regression thresholds",
 ]
 
 # ---------------------------------------------------------------------------
@@ -131,6 +132,7 @@ source = ["src/knowledge_assistant"]
 omit = [
     "src/knowledge_assistant/*/adapters/*",
     "src/knowledge_assistant/platform/*",
+    "src/knowledge_assistant/evaluation/*",
     "src/knowledge_assistant/main.py",
     "src/knowledge_assistant/bootstrap.py",
     "src/knowledge_assistant/config.py",
