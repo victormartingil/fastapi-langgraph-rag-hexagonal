@@ -10,7 +10,7 @@ covered by integration tests against a real migrated database.
 import pytest
 from sqlalchemy.exc import ProgrammingError
 
-from knowledge_assistant.shared.infrastructure.schema_meta import (
+from knowledge_assistant.platform.database.schema_meta import (
     _assert_language_matches,
     _is_missing_meta_table,
 )

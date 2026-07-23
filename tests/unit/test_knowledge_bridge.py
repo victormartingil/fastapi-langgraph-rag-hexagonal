@@ -2,12 +2,12 @@
 
 import pytest
 
-from knowledge_assistant.assistant.domain.exceptions import RetrievalUnavailableError
-from knowledge_assistant.assistant.infrastructure.knowledge.in_process import (
+from knowledge_assistant.assistant.adapters.outbound.knowledge.in_process import (
     InProcessKnowledgeSearchAdapter,
 )
+from knowledge_assistant.assistant.domain.exceptions import RetrievalUnavailableError
+from knowledge_assistant.knowledge_base.application.queries import SearchKnowledge
 from knowledge_assistant.knowledge_base.application.read_models import KnowledgeHit
-from knowledge_assistant.knowledge_base.application.services import SearchKnowledge
 from knowledge_assistant.knowledge_base.domain.exceptions import (
     KnowledgeBaseUnavailableError,
 )

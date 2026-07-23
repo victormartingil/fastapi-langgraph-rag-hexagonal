@@ -9,7 +9,7 @@ test_ai_adapters.py).
 
 import httpx
 
-from knowledge_assistant.shared.infrastructure.http_resilience import (
+from knowledge_assistant.platform.http.resilience import (
     is_transient_http_error,
 )
 

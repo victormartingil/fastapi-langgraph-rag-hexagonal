@@ -3,7 +3,7 @@
 The contracts live in pyproject.toml (`[tool.importlinter]`) and encode the
 hexagonal rules as executable checks:
 
-- within each context: infrastructure -> application -> domain (inward only);
+- within each context: adapters -> application -> domain (inward only);
 - contexts must not import each other;
 - the domain must not import any framework (fastapi, sqlalchemy, langgraph...).
 

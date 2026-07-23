@@ -7,6 +7,7 @@ relevant context survives grading, the answer is an honest refusal.
 
 import pytest
 
+from knowledge_assistant.assistant.application.ask import AskQuestion
 from knowledge_assistant.assistant.application.graph.builder import build_rag_graph
 from knowledge_assistant.assistant.application.graph.nodes import (
     REFUSAL_MESSAGE,
@@ -17,7 +18,6 @@ from knowledge_assistant.assistant.application.graph.nodes import (
 )
 from knowledge_assistant.assistant.application.graph.state import RagState
 from knowledge_assistant.assistant.application.ports import KnowledgeSearch
-from knowledge_assistant.assistant.application.service import AskQuestion
 from knowledge_assistant.assistant.domain.exceptions import (
     EmptyQuestionError,
     RetrievalUnavailableError,

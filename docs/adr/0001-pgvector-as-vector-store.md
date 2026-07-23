@@ -36,7 +36,7 @@ Use **pgvector** inside the existing PostgreSQL.
   defended at two layers, because config and reality can disagree twice:
   1. **Startup (config vs schema)** — the composition root compares the
      resolved dimension against `SCHEMA_EMBEDDING_DIMENSION` (the constant
-     that mirrors the migration, in `container.py`) and **refuses to boot**
+     that mirrors the migration, in `bootstrap.py`) and **refuses to boot**
      with a `ValueError` naming this ADR on mismatch.
   2. **First ingest (reality vs config)** — `IngestDocument` checks the
      provider's first actual vector against the configured dimension and

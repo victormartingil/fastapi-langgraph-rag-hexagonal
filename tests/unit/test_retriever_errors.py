@@ -15,14 +15,14 @@ import pytest
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from knowledge_assistant.knowledge_base.domain.exceptions import KnowledgeBaseUnavailableError
-from knowledge_assistant.knowledge_base.infrastructure.retrieval.pgvector_hybrid import (
+from knowledge_assistant.knowledge_base.adapters.outbound.retrieval.pgvector_hybrid import (
     PgVectorHybridRetriever,
 )
-from knowledge_assistant.shared.domain.exceptions import (
+from knowledge_assistant.knowledge_base.domain.exceptions import (
     EmbeddingProviderUnavailableError,
+    KnowledgeBaseUnavailableError,
 )
-from knowledge_assistant.shared.domain.value_objects import EmbeddingVector
+from knowledge_assistant.shared_kernel.value_objects import EmbeddingVector
 from tests.unit.fakes import FakeEmbeddingProvider
 
 DIM = 768

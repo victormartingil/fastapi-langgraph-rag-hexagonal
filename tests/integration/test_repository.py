@@ -10,15 +10,15 @@ a single embedding for list rendering.
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from knowledge_assistant.knowledge_base.adapters.outbound.persistence.models import ChunkModel
+from knowledge_assistant.knowledge_base.adapters.outbound.persistence.repository import (
+    SqlAlchemyDocumentRepository,
+)
 from knowledge_assistant.knowledge_base.domain.exceptions import DuplicateDocumentError
 from knowledge_assistant.knowledge_base.domain.models import Chunk, Document
 from knowledge_assistant.knowledge_base.domain.value_objects import ChunkText, DocumentId
-from knowledge_assistant.knowledge_base.infrastructure.persistence.models import ChunkModel
-from knowledge_assistant.knowledge_base.infrastructure.persistence.repository import (
-    SqlAlchemyDocumentRepository,
-)
-from knowledge_assistant.shared.domain.value_objects import EmbeddingVector
-from knowledge_assistant.shared.infrastructure.database import session_scope
+from knowledge_assistant.platform.database.session import session_scope
+from knowledge_assistant.shared_kernel.value_objects import EmbeddingVector
 
 pytestmark = pytest.mark.integration
 

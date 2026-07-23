@@ -6,11 +6,11 @@ domain errors, not vendor exception zoos (a corrupt PDF is a 422, not a 500).
 
 import pytest
 
-from knowledge_assistant.knowledge_base.domain.exceptions import TextExtractionError
-from knowledge_assistant.knowledge_base.infrastructure.extraction.pdf import PdfTextExtractor
-from knowledge_assistant.knowledge_base.infrastructure.extraction.plain_text import (
+from knowledge_assistant.knowledge_base.adapters.outbound.extraction.pdf import PdfTextExtractor
+from knowledge_assistant.knowledge_base.adapters.outbound.extraction.plain_text import (
     PlainTextExtractor,
 )
+from knowledge_assistant.knowledge_base.domain.exceptions import TextExtractionError
 
 
 class TestPdfTextExtractor:

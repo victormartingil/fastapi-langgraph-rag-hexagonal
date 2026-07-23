@@ -19,7 +19,7 @@ from knowledge_assistant.knowledge_base.application.read_models import DocumentS
 from knowledge_assistant.knowledge_base.domain.exceptions import DuplicateDocumentError
 from knowledge_assistant.knowledge_base.domain.models import Document
 from knowledge_assistant.knowledge_base.domain.value_objects import DocumentId
-from knowledge_assistant.shared.domain.value_objects import EmbeddingVector
+from knowledge_assistant.shared_kernel.value_objects import EmbeddingVector
 
 
 class FakeDocumentRepository:

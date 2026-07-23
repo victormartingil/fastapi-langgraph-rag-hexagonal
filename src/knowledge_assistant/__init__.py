@@ -3,7 +3,7 @@
 The package is organized into bounded contexts (`knowledge_base`, `assistant`) plus a
 `shared` kernel. Each context follows the same three-layer rule:
 
-    domain  <-  application  <-  infrastructure
+    domain  <-  application  <-  adapters
 
 Dependencies may only point INWARD. The rule is not a convention; it is
 enforced by import-linter contracts (see tests/architecture).

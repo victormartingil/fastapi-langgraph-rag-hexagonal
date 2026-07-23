@@ -20,32 +20,30 @@ from httpx import ASGITransport, AsyncClient
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from knowledge_assistant import container as container_module
-from knowledge_assistant.assistant.application.graph.builder import build_rag_graph
-from knowledge_assistant.assistant.application.service import AskQuestion
-from knowledge_assistant.assistant.domain.exceptions import GenerationUnavailableError
-from knowledge_assistant.assistant.domain.models import Answer, RetrievedChunk, Source
-from knowledge_assistant.assistant.infrastructure.knowledge.in_process import (
+from knowledge_assistant import bootstrap
+from knowledge_assistant.assistant.adapters.outbound.knowledge.in_process import (
     InProcessKnowledgeSearchAdapter,
 )
+from knowledge_assistant.assistant.application.ask import AskQuestion
+from knowledge_assistant.assistant.application.graph.builder import build_rag_graph
+from knowledge_assistant.assistant.domain.exceptions import GenerationUnavailableError
+from knowledge_assistant.assistant.domain.models import Answer, RetrievedChunk, Source
+from knowledge_assistant.bootstrap import Container, build_container
 from knowledge_assistant.config import Settings
-from knowledge_assistant.container import Container, build_container
-from knowledge_assistant.knowledge_base.application.services import (
-    IngestDocument,
-    SearchKnowledge,
-)
-from knowledge_assistant.knowledge_base.infrastructure.extraction.pdf import PdfTextExtractor
-from knowledge_assistant.knowledge_base.infrastructure.extraction.plain_text import (
+from knowledge_assistant.knowledge_base.adapters.outbound.extraction.pdf import PdfTextExtractor
+from knowledge_assistant.knowledge_base.adapters.outbound.extraction.plain_text import (
     PlainTextExtractor,
 )
-from knowledge_assistant.knowledge_base.infrastructure.retrieval.pgvector_hybrid import (
+from knowledge_assistant.knowledge_base.adapters.outbound.retrieval.pgvector_hybrid import (
     PgVectorHybridRetriever,
 )
-from knowledge_assistant.main import create_app
-from knowledge_assistant.shared.domain.exceptions import (
+from knowledge_assistant.knowledge_base.application.ingest import IngestDocument
+from knowledge_assistant.knowledge_base.application.queries import SearchKnowledge
+from knowledge_assistant.knowledge_base.domain.exceptions import (
     EmbeddingProviderUnavailableError,
 )
-from knowledge_assistant.shared.domain.value_objects import EmbeddingVector
+from knowledge_assistant.main import create_app
+from knowledge_assistant.shared_kernel.value_objects import EmbeddingVector
 from tests.unit.fakes import FakeEmbeddingProvider
 
 pytestmark = pytest.mark.e2e
@@ -168,9 +166,7 @@ async def _build_client(
         def broken_provide_ask_question() -> AskQuestion:
             raise RuntimeError("boom: an unhandled, undomained failure")
 
-        app.dependency_overrides[container_module.provide_ask_question] = (
-            broken_provide_ask_question
-        )
+        app.dependency_overrides[bootstrap.provide_ask_question] = broken_provide_ask_question
 
     async with AsyncClient(
         transport=ASGITransport(app=app), base_url="http://testserver"
@@ -187,18 +183,18 @@ def _install_dependency_overrides(app: FastAPI) -> None:
     fake_embeddings = FakeEmbeddingProvider(dimension=EMBEDDING_DIM)
 
     def override_provide_ingest_document(
-        container: Annotated[Container, Depends(container_module.get_container)],
+        container: Annotated[Container, Depends(bootstrap.get_container)],
     ) -> IngestDocument:
         # Same shape as the production provider (ADR-0005): the use case
         # gets a repository-SCOPE factory, not a request-scoped repository.
         return IngestDocument(
-            open_repository=container_module.repository_scope_factory(container.session_factory),
+            open_repository=bootstrap.repository_scope_factory(container.session_factory),
             embedding_provider=fake_embeddings,
             text_extractors=(PlainTextExtractor(), PdfTextExtractor()),
         )
 
     def override_provide_ask_question(
-        session: Annotated[AsyncSession, Depends(container_module.provide_session)],
+        session: Annotated[AsyncSession, Depends(bootstrap.provide_session)],
     ) -> AskQuestion:
         retriever = PgVectorHybridRetriever(session, fake_embeddings)
         knowledge_search = InProcessKnowledgeSearchAdapter(SearchKnowledge(retriever))
@@ -207,10 +203,8 @@ def _install_dependency_overrides(app: FastAPI) -> None:
         ).compile()
         return AskQuestion(graph)
 
-    app.dependency_overrides[container_module.provide_ingest_document] = (
-        override_provide_ingest_document
-    )
-    app.dependency_overrides[container_module.provide_ask_question] = override_provide_ask_question
+    app.dependency_overrides[bootstrap.provide_ingest_document] = override_provide_ingest_document
+    app.dependency_overrides[bootstrap.provide_ask_question] = override_provide_ask_question
 
 
 @pytest.fixture

@@ -3,7 +3,7 @@
 These are PLAIN frozen dataclasses. No SQLAlchemy, no Pydantic, no FastAPI.
 That is not purism: it is what makes the core logic trivially testable and
 immune to framework upgrades. The mapping to persistence/HTTP representations
-happens explicitly in the infrastructure layer (see `mappers.py` modules).
+happens explicitly in outbound adapters (see `mappers.py` modules).
 
 A `Document` is the aggregate: it owns its `Chunk`s, and chunks are never
 persisted independently of their document.
@@ -13,10 +13,10 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 
 from knowledge_assistant.knowledge_base.domain.value_objects import ChunkText, DocumentId
-from knowledge_assistant.shared.domain.value_objects import EmbeddingVector
+from knowledge_assistant.shared_kernel.value_objects import EmbeddingVector
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class Chunk:
     """One embeddable fragment of a Document, with its vector once computed.
 
@@ -30,7 +30,7 @@ class Chunk:
     embedding: EmbeddingVector | None = None
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class Document:
     """An ingested document in the permanent knowledge base.
 

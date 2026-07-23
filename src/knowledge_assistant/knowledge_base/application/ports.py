@@ -2,7 +2,7 @@
 
 A port is a `typing.Protocol`: a STRUCTURAL interface. Anything with matching
 methods satisfies it — no inheritance required (the Pythonic answer to Java
-interfaces). Use cases depend on these protocols; infrastructure adapters
+interfaces). Use cases depend on these protocols; outbound adapters
 implement them; tests replace them with hand-written fakes.
 
 Ports are small and focused (Interface Segregation): the use case that ingests
@@ -19,11 +19,7 @@ from knowledge_assistant.knowledge_base.application.read_models import (
 )
 from knowledge_assistant.knowledge_base.domain.models import Document
 from knowledge_assistant.knowledge_base.domain.value_objects import DocumentId
-
-# The embedding capability is defined in the shared kernel so that the chat
-# context can consume it too without a forbidden cross-context dependency.
-# It is re-exported here because it is also a port the knowledge-base context consumes.
-from knowledge_assistant.shared.application.ports import EmbeddingProvider
+from knowledge_assistant.shared_kernel.value_objects import EmbeddingVector
 
 __all__ = [
     "DocumentRepository",
@@ -32,6 +28,14 @@ __all__ = [
     "OpenRepository",
     "TextExtractor",
 ]
+
+
+class EmbeddingProvider(Protocol):
+    """Port toward a model that turns text into dense vectors."""
+
+    async def embed(self, texts: list[str]) -> list[EmbeddingVector]:
+        """Embed a batch while preserving input order."""
+        ...
 
 
 class DocumentRepository(Protocol):

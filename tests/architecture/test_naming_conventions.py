@@ -48,7 +48,7 @@ def _classes_defined_in(module_name: str) -> Iterator[tuple[str, type]]:
 def test_adapter_classes_carry_a_technology_prefix() -> None:
     violations: list[str] = []
     for context in CONTEXTS:
-        for module_name in _walk_modules(f"knowledge_assistant.{context}.infrastructure"):
+        for module_name in _walk_modules(f"knowledge_assistant.{context}.adapters"):
             if ".http" in module_name or module_name.endswith("persistence.models"):
                 continue  # routers/schemas and ORM models are exempt by design
             for class_name, cls in _classes_defined_in(module_name):
@@ -66,7 +66,6 @@ def test_port_modules_contain_only_protocols() -> None:
     port_modules = [
         "knowledge_assistant.knowledge_base.application.ports",
         "knowledge_assistant.assistant.application.ports",
-        "knowledge_assistant.shared.application.ports",
     ]
     for module_name in port_modules:
         for class_name, cls in _classes_defined_in(module_name):

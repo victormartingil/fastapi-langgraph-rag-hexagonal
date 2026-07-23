@@ -11,7 +11,7 @@ import pytest
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from knowledge_assistant.shared.infrastructure.database import (
+from knowledge_assistant.platform.database.session import (
     create_engine,
     create_session_factory,
     session_scope,

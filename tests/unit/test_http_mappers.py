@@ -1,8 +1,8 @@
 """Unit tests for the HTTP mapper of the knowledge-base context."""
 
+from knowledge_assistant.knowledge_base.adapters.inbound.http.mappers import document_to_response
 from knowledge_assistant.knowledge_base.domain.models import Document
 from knowledge_assistant.knowledge_base.domain.value_objects import DocumentId
-from knowledge_assistant.knowledge_base.infrastructure.http.mappers import document_to_response
 
 
 def test_document_to_response_maps_the_public_contract() -> None:
