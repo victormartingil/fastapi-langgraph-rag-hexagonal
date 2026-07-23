@@ -18,6 +18,8 @@ venv/
 .coverage
 htmlcov/
 coverage.xml
+evals/report.json
+evals/report.md
 
 # Environment & secrets
 .env

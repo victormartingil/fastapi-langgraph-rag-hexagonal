@@ -1,0 +1,12 @@
+{
+  "dataset": {
+    "cases": 30,
+    "documents": 12
+  },
+  "retrieval": {
+    "lexical": {
+      "mrr": 0.7871212121212121,
+      "recall_at_5": 0.8636363636363636
+    }
+  }
+}
