@@ -8,7 +8,7 @@ structured-output schema the vendor SDK needs.
 from dataclasses import dataclass
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class RetrievedChunk:
     """A chunk fetched by the retriever, with the score that ranked it."""
 
@@ -19,7 +19,7 @@ class RetrievedChunk:
     score: float
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class Source:
     """A citation attached to an answer: where did this claim come from?"""
 
@@ -30,7 +30,7 @@ class Source:
     score: float
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class Answer:
     """The final product of the Q&A pipeline.
 

@@ -14,14 +14,14 @@ import pytest
 from sqlalchemy.exc import InterfaceError, OperationalError, ProgrammingError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from knowledge_assistant.knowledge_base.adapters.outbound.persistence.repository import (
+    SqlAlchemyDocumentRepository,
+)
 from knowledge_assistant.knowledge_base.domain.exceptions import (
     KnowledgeBaseUnavailableError,
 )
 from knowledge_assistant.knowledge_base.domain.models import Document
 from knowledge_assistant.knowledge_base.domain.value_objects import DocumentId
-from knowledge_assistant.knowledge_base.infrastructure.persistence.repository import (
-    SqlAlchemyDocumentRepository,
-)
 
 CONNECTION_REFUSED = OperationalError("SELECT 1", {}, Exception("connection refused"))
 CONNECTION_DROPPED = InterfaceError("SELECT 1", {}, Exception("connection dropped"))

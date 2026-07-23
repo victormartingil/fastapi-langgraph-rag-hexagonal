@@ -13,16 +13,16 @@ import pytest
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from knowledge_assistant.knowledge_base.domain.models import Chunk, Document
-from knowledge_assistant.knowledge_base.domain.value_objects import ChunkText, DocumentId
-from knowledge_assistant.knowledge_base.infrastructure.persistence.repository import (
+from knowledge_assistant.knowledge_base.adapters.outbound.persistence.repository import (
     SqlAlchemyDocumentRepository,
 )
-from knowledge_assistant.knowledge_base.infrastructure.retrieval.pgvector_hybrid import (
+from knowledge_assistant.knowledge_base.adapters.outbound.retrieval.pgvector_hybrid import (
     HYBRID_SEARCH_SQL,
     PgVectorHybridRetriever,
 )
-from knowledge_assistant.shared.domain.value_objects import EmbeddingVector
+from knowledge_assistant.knowledge_base.domain.models import Chunk, Document
+from knowledge_assistant.knowledge_base.domain.value_objects import ChunkText, DocumentId
+from knowledge_assistant.shared_kernel.value_objects import EmbeddingVector
 from tests.unit.fakes import FakeEmbeddingProvider
 
 pytestmark = pytest.mark.integration

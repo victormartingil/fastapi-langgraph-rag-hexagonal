@@ -15,7 +15,7 @@ import uuid
 from dataclasses import dataclass, field
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class DocumentId:
     """Strongly typed identity of a Document."""
 
@@ -30,7 +30,7 @@ class DocumentId:
         return str(self.value)
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class ChunkText:
     """A piece of text that fits in one embedding.
 
@@ -54,4 +54,4 @@ class ChunkText:
 
 # NOTE: `EmbeddingVector` is NOT defined here. Both bounded contexts need it
 # (write side embeds chunks, read side embeds questions), so it lives in the
-# shared kernel: knowledge_assistant.shared.domain.value_objects.
+# shared kernel: knowledge_assistant.shared_kernel.value_objects.

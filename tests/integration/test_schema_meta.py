@@ -17,7 +17,7 @@ import pytest
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from knowledge_assistant.shared.infrastructure.schema_meta import (
+from knowledge_assistant.platform.database.schema_meta import (
     assert_fts_language_parity,
 )
 

@@ -6,14 +6,14 @@ suite even though they live in the infrastructure layer — no database needed.
 
 import pytest
 
-from knowledge_assistant.knowledge_base.domain.models import Chunk, Document
-from knowledge_assistant.knowledge_base.domain.value_objects import ChunkText, DocumentId
-from knowledge_assistant.knowledge_base.infrastructure.persistence.mappers import (
+from knowledge_assistant.knowledge_base.adapters.outbound.persistence.mappers import (
     chunk_to_model,
     document_to_domain,
     document_to_model,
 )
-from knowledge_assistant.shared.domain.value_objects import EmbeddingVector
+from knowledge_assistant.knowledge_base.domain.models import Chunk, Document
+from knowledge_assistant.knowledge_base.domain.value_objects import ChunkText, DocumentId
+from knowledge_assistant.shared_kernel.value_objects import EmbeddingVector
 
 
 def make_chunk(with_embedding: bool = True) -> Chunk:

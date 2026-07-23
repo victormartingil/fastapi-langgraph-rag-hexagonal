@@ -10,7 +10,7 @@ Dependencies may only point **inward**:
 
 ```
         ┌─────────────────────────────────────────────┐
-        │              infrastructure                 │
+        │                  adapters                   │
         │  FastAPI routers, SQLAlchemy, pgvector SQL, │
         │  Ollama/OpenAI clients, Pydantic AI         │
         │        │  (depends on ↓)                    │
@@ -29,7 +29,7 @@ Dependencies may only point **inward**:
 ```
 
 The domain imports **nothing** outside the standard library. The application
-layer imports the domain. Infrastructure imports both. Never the reverse.
+layer imports the domain. Adapters import both. Never the reverse.
 
 This is not enforced by discipline — it is enforced by
 [import-linter](https://import-linter.readthedocs.io/) contracts in
@@ -41,7 +41,7 @@ from a domain module: the build goes red.
 ### 1. Domain models — frozen dataclasses
 
 ```python
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class Chunk:
     id: DocumentId
     text: ChunkText
@@ -51,8 +51,9 @@ class Chunk:
 
 Why frozen dataclasses and not Pydantic? Because the domain should not depend
 on any framework — not even a validation framework. Immutability (`frozen`)
-gives us value semantics for free, and `__post_init__` gives us just enough
-validation to make invalid states unrepresentable (`ChunkText("")` raises).
+gives us value semantics for free, `slots=True` avoids per-instance attribute
+dictionaries, and `__post_init__` gives us just enough validation to make
+invalid states unrepresentable (`ChunkText("")` raises).
 
 ### 2. Ports — `typing.Protocol`
 
@@ -67,9 +68,9 @@ satisfies it, without inheriting anything. This is the Pythonic answer to
 Java/C# interfaces — defined by the *consumer* (the use case), implemented by
 the *provider* (the adapter), checked by mypy.
 
-Ports live in `*/application/ports.py`, one small Protocol per capability
-(Interface Segregation). The single cross-context capability — embedding —
-lives in `shared/application/ports.py` (see the module docstring for why).
+Ports live in `*/application/ports.py`, one small Protocol per volatile
+boundary (Interface Segregation). Embeddings belong to `knowledge_base`;
+the assistant sees only its own `KnowledgeSearch` port.
 
 ### 3. Use cases — small verb-named classes
 
@@ -108,7 +109,7 @@ The prefix makes the coupling visible in the name. Adapters implement ports
 **structurally** (no `class X(DocumentRepository)`), and all vendor knowledge
 is quarantined inside them. Swapping Ollama for OpenAI is a `.env` change;
 swapping PostgreSQL for Qdrant is one new file plus one line in
-`container.py`.
+`bootstrap.py`.
 
 ## Explicit mappers at every boundary
 
@@ -125,7 +126,7 @@ point: the mapping is where schema changes stop propagating.
 
 ## The composition root
 
-`src/knowledge_assistant/container.py` is the **only** module that knows
+`src/knowledge_assistant/bootstrap.py` is the **only** module that knows
 which concrete classes exist. It does two things:
 
 1. `build_container(settings)` creates long-lived adapters (engine, HTTP
@@ -142,10 +143,12 @@ override the `provide_*` dependency (e2e).
 
 ## Bounded contexts
 
-`knowledge_base` (document lifecycle and search) and `assistant` (grounded Q&A) never import each other —
-enforced by contract. The write side stores knowledge; the read side queries
-the same tables. When a concept is genuinely shared (the embedding port), it
-moves to the `shared` kernel, not to "the other context imports this one".
+`knowledge_base` owns document lifecycle and search; `assistant` owns grounded
+Q&A. The assistant does not know its tables or persistence models. Its
+`KnowledgeSearch` port is implemented by one in-process adapter that calls the
+public `SearchKnowledge` use case. Import-linter allows only that explicit
+bridge. `shared_kernel` remains deliberately tiny: shared value objects and
+domain-level error types, not services or vendor abstractions.
 
 ## Further reading
 

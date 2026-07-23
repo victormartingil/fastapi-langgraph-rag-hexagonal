@@ -16,7 +16,7 @@ from datetime import datetime
 from knowledge_assistant.knowledge_base.domain.value_objects import DocumentId
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class DocumentSummary:
     """What the list endpoint knows about a document — no chunks attached."""
 
@@ -27,7 +27,7 @@ class DocumentSummary:
     chunk_count: int
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class DocumentPage:
     """One page of summaries plus the total, so clients can paginate."""
 
@@ -37,7 +37,7 @@ class DocumentPage:
     offset: int
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class KnowledgeHit:
     """A ranked search result exposed by the knowledge-base application API.
 

@@ -7,7 +7,7 @@ non-English question. These tests pin the Unicode behavior and the
 injection-safety property.
 """
 
-from knowledge_assistant.knowledge_base.infrastructure.retrieval.pgvector_hybrid import (
+from knowledge_assistant.knowledge_base.adapters.outbound.retrieval.pgvector_hybrid import (
     _to_or_query,
 )
 

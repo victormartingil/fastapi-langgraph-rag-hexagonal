@@ -32,7 +32,7 @@ chunk ──► embed each chunk ──► PostgreSQL    hybrid search (dense + 
 
 ## Step 1 — Extraction
 
-`knowledge_base/infrastructure/extraction/`. Uploads arrive as bytes; an adapter
+`knowledge_base/adapters/outbound/extraction/`. Uploads arrive as bytes; an adapter
 per format (`PlainTextExtractor`, `PdfTextExtractor`) turns them into text.
 The use case picks the first extractor whose `supports(file_name)` matches —
 adding DOCX later is one new adapter.
@@ -63,7 +63,7 @@ next to the chunk in a `vector(768)` pgvector column.
 
 ## Step 4 — Hybrid retrieval
 
-`knowledge_base/infrastructure/retrieval/pgvector_hybrid.py`. Neither search style is
+`knowledge_base/adapters/outbound/retrieval/pgvector_hybrid.py`. Neither search style is
 enough alone:
 
 |                     | Dense (vector) search           | Full-text (tsvector) search      |

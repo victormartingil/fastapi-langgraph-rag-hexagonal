@@ -1,6 +1,6 @@
 """Domain errors of the chat bounded context (read side)."""
 
-from knowledge_assistant.shared.domain.exceptions import DomainError
+from knowledge_assistant.shared_kernel.exceptions import DomainError
 
 
 class EmptyQuestionError(DomainError):

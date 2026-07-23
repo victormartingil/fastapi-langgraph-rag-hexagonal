@@ -112,6 +112,7 @@ check_untyped_defs = true
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
+addopts = ["--import-mode=importlib"]
 markers = [
     "integration: tests that need Docker (testcontainers, real PostgreSQL+pgvector)",
     "e2e: full HTTP round-trip tests that need Docker (testcontainers)",
@@ -128,10 +129,10 @@ markers = [
 [tool.coverage.run]
 source = ["src/knowledge_assistant"]
 omit = [
-    "src/knowledge_assistant/*/infrastructure/*",
-    "src/knowledge_assistant/shared/infrastructure/*",
+    "src/knowledge_assistant/*/adapters/*",
+    "src/knowledge_assistant/platform/*",
     "src/knowledge_assistant/main.py",
-    "src/knowledge_assistant/container.py",
+    "src/knowledge_assistant/bootstrap.py",
     "src/knowledge_assistant/config.py",
 ]
 
@@ -153,22 +154,22 @@ root_package = "knowledge_assistant"
 include_external_packages = true
 
 # Within each bounded context, dependencies may only point INWARD:
-# infrastructure -> application -> domain. (Layers are listed highest first;
+# adapters -> application -> domain. (Layers are listed highest first;
 # a layer may not import any layer listed above it.)
 [[tool.importlinter.contracts]]
-name = "Knowledge-base context: hexagonal layers (infra -> application -> domain)"
+name = "Knowledge-base context: hexagonal layers (adapters -> application -> domain)"
 type = "layers"
 layers = [
-    "knowledge_assistant.knowledge_base.infrastructure",
+    "knowledge_assistant.knowledge_base.adapters",
     "knowledge_assistant.knowledge_base.application",
     "knowledge_assistant.knowledge_base.domain",
 ]
 
 [[tool.importlinter.contracts]]
-name = "Assistant context: hexagonal layers (infra -> application -> domain)"
+name = "Assistant context: hexagonal layers (adapters -> application -> domain)"
 type = "layers"
 layers = [
-    "knowledge_assistant.assistant.infrastructure",
+    "knowledge_assistant.assistant.adapters",
     "knowledge_assistant.assistant.application",
     "knowledge_assistant.assistant.domain",
 ]
@@ -188,7 +189,7 @@ type = "forbidden"
 source_modules = ["knowledge_assistant.knowledge_base"]
 forbidden_modules = ["knowledge_assistant.assistant"]
 ignore_imports = [
-    "knowledge_assistant.knowledge_base.infrastructure.http.router -> knowledge_assistant.container",
+    "knowledge_assistant.knowledge_base.adapters.inbound.http.router -> knowledge_assistant.bootstrap",
 ]
 
 [[tool.importlinter.contracts]]
@@ -197,9 +198,9 @@ type = "forbidden"
 source_modules = ["knowledge_assistant.assistant"]
 forbidden_modules = ["knowledge_assistant.knowledge_base"]
 ignore_imports = [
-    "knowledge_assistant.assistant.infrastructure.http.router -> knowledge_assistant.container",
-    "knowledge_assistant.assistant.infrastructure.knowledge.in_process -> knowledge_assistant.knowledge_base.application.services",
-    "knowledge_assistant.assistant.infrastructure.knowledge.in_process -> knowledge_assistant.knowledge_base.domain.exceptions",
+    "knowledge_assistant.assistant.adapters.inbound.http.router -> knowledge_assistant.bootstrap",
+    "knowledge_assistant.assistant.adapters.outbound.knowledge.in_process -> knowledge_assistant.knowledge_base.application.queries",
+    "knowledge_assistant.assistant.adapters.outbound.knowledge.in_process -> knowledge_assistant.knowledge_base.domain.exceptions",
 ]
 
 # The domain is PURE: no frameworks, no I/O, no vendors. If this contract
@@ -210,7 +211,7 @@ type = "forbidden"
 source_modules = [
     "knowledge_assistant.knowledge_base.domain",
     "knowledge_assistant.assistant.domain",
-    "knowledge_assistant.shared.domain",
+    "knowledge_assistant.shared_kernel",
 ]
 forbidden_modules = [
     "fastapi",
@@ -226,5 +227,22 @@ forbidden_modules = [
     "structlog",
     "tenacity",
     "pypdf",
+]
+ignore_imports = []
+
+[[tool.importlinter.contracts]]
+name = "Domain and application do not depend on adapters or platform"
+type = "forbidden"
+source_modules = [
+    "knowledge_assistant.knowledge_base.domain",
+    "knowledge_assistant.knowledge_base.application",
+    "knowledge_assistant.assistant.domain",
+    "knowledge_assistant.assistant.application",
+    "knowledge_assistant.shared_kernel",
+]
+forbidden_modules = [
+    "knowledge_assistant.knowledge_base.adapters",
+    "knowledge_assistant.assistant.adapters",
+    "knowledge_assistant.platform",
 ]
 ignore_imports = []

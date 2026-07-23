@@ -35,7 +35,7 @@ Two complementary defenses:
    from the actual column expression** (`pg_get_expr`), never copied from the
    environment, so the table describes reality even for databases migrated
    before this mechanism existed. At startup
-   (`shared/infrastructure/schema_meta.py`, called from the lifespan) the app
+   (`platform/database/schema_meta.py`, called from the lifespan) the app
    compares the recorded language against `KA_FTS_LANGUAGE`:
    - **mismatch** → refuse to boot, naming both languages and the fix;
    - **table/row missing** → refuse to boot: schema older than the app, run

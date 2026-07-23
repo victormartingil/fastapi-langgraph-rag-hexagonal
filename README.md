@@ -71,12 +71,12 @@ honest refusal instead. Interactive docs at `http://localhost:8000/docs`; a
 
 Two bounded contexts — `knowledge_base` (document lifecycle and search) and
 `assistant` (grounded Q&A) — each layered
-**domain ← application ← infrastructure**, with dependencies pointing inward
+**domain ← application ← adapters**, with dependencies pointing inward
 only. The rule is executable: import-linter contracts run as tests.
 
 ```mermaid
 flowchart TB
-    subgraph HTTP["infrastructure: http"]
+    subgraph HTTP["inbound adapters: HTTP"]
         DR["documents router"]
         CR["chat router"]
     end
@@ -96,7 +96,7 @@ flowchart TB
         AQS --> G --> CP --> CD
     end
 
-    subgraph ADAPTERS["infrastructure: adapters"]
+    subgraph ADAPTERS["outbound adapters"]
         REPO["SqlAlchemyDocumentRepository"]
         EMB["OllamaEmbeddingProvider / OpenAiEmbeddingProvider"]
         EXT["PdfTextExtractor / PlainTextExtractor"]
@@ -141,17 +141,17 @@ The details, with file pointers: [docs/01](docs/01-hexagonal-architecture-in-pyt
 src/knowledge_assistant/
 ├── main.py                  # create_app() — entry point
 ├── config.py                # Settings (pydantic-settings, KA_* env vars)
-├── container.py             # composition root: the ONLY place adapters are chosen
+├── bootstrap.py             # composition root: the ONLY place adapters are chosen
 ├── knowledge_base/          # bounded context: documents, indexing, retrieval
 │   ├── domain/              #   models, value objects, chunking (pure)
 │   ├── application/         #   ports (Protocols) + public use cases
-│   └── infrastructure/      #   HTTP / persistence / extraction / retrieval
+│   └── adapters/            #   inbound HTTP; outbound persistence/extraction/search
 ├── assistant/               # bounded context: grounded Q&A
 │   ├── domain/              #   Answer, Source, RetrievedChunk
 │   ├── application/         #   ports, AskQuestion, graph/ (LangGraph)
-│   └── infrastructure/      #   HTTP / knowledge bridge / LLM
-└── shared/                  # shared kernel: exceptions, EmbeddingVector/port,
-                             # database, logging, middleware, Alembic migrations
+│   └── adapters/            #   inbound HTTP; outbound knowledge bridge / LLM
+├── shared_kernel/           # only truly shared values and domain errors
+└── platform/                # database lifecycle/migrations, HTTP, observability
 tests/
 ├── unit/                    # domain + use cases + graph nodes, hand-written fakes
 ├── architecture/            # import-linter contracts + naming rules
@@ -299,10 +299,10 @@ e.g. `feat(chat): add grading node`.
 **Junior** — "make it run, then follow one request":
 1. Quick start above → play with `/docs`.
 2. `docs/02-rag-explained.md` (the concepts).
-3. Read `knowledge_base/application/services.py` (a use case end-to-end), then
+3. Read `knowledge_base/application/ingest.py` (a use case end-to-end), then
    `tests/unit/test_document_services.py` (how it's tested without Docker).
 4. Exercise: add a new file type extractor (`.html`) — port, adapter, wiring
-   in `container.py`, unit test.
+   in `bootstrap.py`, unit test.
 
 **Mid** — "own a feature":
 1. `docs/01-hexagonal-architecture-in-python.md` and the ADRs.
@@ -316,7 +316,7 @@ e.g. `feat(chat): add grading node`.
 1. ADRs [0001](docs/adr/0001-pgvector-as-vector-store.md) /
    [0002](docs/adr/0002-langgraph-in-application-layer.md) /
    [0003](docs/adr/0003-hybrid-retrieval.md) — argue with them.
-2. The RRF SQL in `knowledge_base/infrastructure/retrieval/pgvector_hybrid.py` and its
+2. The RRF SQL in `knowledge_base/adapters/outbound/retrieval/pgvector_hybrid.py` and its
    integration tests.
 3. `docs/05-java-to-python-cheatsheet.md` if you mentor Java developers.
 4. Exercise: pick a roadmap item below and design it on paper first.

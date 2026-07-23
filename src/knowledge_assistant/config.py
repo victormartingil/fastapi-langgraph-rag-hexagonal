@@ -34,7 +34,7 @@ class Settings(BaseSettings):
     database_url: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/knowledge"
 
     # --- Embeddings -------------------------------------------------------
-    # Provider-driven defaults are resolved in container.py (symmetric with
+    # Provider-driven defaults are resolved in bootstrap.py (symmetric with
     # the LLM); leave these unset (None) to inherit the provider's default
     # model/endpoint/dimension.
     embedding_provider: Literal["ollama", "openai"] = "ollama"
@@ -48,7 +48,7 @@ class Settings(BaseSettings):
     embedding_timeout_seconds: float = 60.0
 
     # --- LLM (answer generation) ------------------------------------------
-    # Provider-driven defaults are resolved in container.py; leave these
+    # Provider-driven defaults are resolved in bootstrap.py; leave these
     # unset (None) to inherit the provider's default model/endpoint/key.
     llm_provider: Literal["ollama", "openai"] = "ollama"
     llm_model: str | None = None

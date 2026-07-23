@@ -15,17 +15,19 @@ import structlog
 from fastapi import Depends, FastAPI, Response, status
 from sqlalchemy import text
 
-from knowledge_assistant import container as container_module
-from knowledge_assistant.assistant.infrastructure.http.router import router as chat_router
+from knowledge_assistant import bootstrap
+from knowledge_assistant.assistant.adapters.inbound.http.router import router as chat_router
+from knowledge_assistant.bootstrap import Container, build_container
 from knowledge_assistant.config import Settings, get_settings
-from knowledge_assistant.container import Container, build_container
-from knowledge_assistant.knowledge_base.infrastructure.http.router import router as documents_router
-from knowledge_assistant.shared.infrastructure.error_handlers import register_error_handlers
-from knowledge_assistant.shared.infrastructure.logging import configure_logging
-from knowledge_assistant.shared.infrastructure.middleware import CorrelationIdMiddleware
-from knowledge_assistant.shared.infrastructure.schema_meta import (
+from knowledge_assistant.knowledge_base.adapters.inbound.http.router import (
+    router as documents_router,
+)
+from knowledge_assistant.platform.database.schema_meta import (
     assert_fts_language_parity,
 )
+from knowledge_assistant.platform.http.error_handlers import register_error_handlers
+from knowledge_assistant.platform.http.middleware import CorrelationIdMiddleware
+from knowledge_assistant.platform.observability.logging import configure_logging
 
 logger = structlog.get_logger()
 
@@ -92,7 +94,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     @app.get("/healthz", tags=["health"])
     async def health(
         response: Response,
-        container: Annotated[Container, Depends(container_module.get_container)],
+        container: Annotated[Container, Depends(bootstrap.get_container)],
     ) -> dict[str, str]:
         """READINESS probe: can the app actually serve traffic right now?
 

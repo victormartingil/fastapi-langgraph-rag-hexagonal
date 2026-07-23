@@ -1,6 +1,10 @@
 """Domain errors of the documents bounded context (write side)."""
 
-from knowledge_assistant.shared.domain.exceptions import DomainError
+from knowledge_assistant.shared_kernel.exceptions import DomainError
+
+
+class EmbeddingProviderUnavailableError(DomainError):
+    """The embedding provider exhausted retries for a transient outage."""
 
 
 class UnsupportedFileTypeError(DomainError):
@@ -95,7 +99,7 @@ class EmbeddingDimensionMismatchError(RuntimeError):
     Deliberately NOT a DomainError: this is a server-side configuration bug
     (model and KA_EMBEDDING_DIMENSION disagree), not a client problem — it
     should surface as a loud 500 the operator fixes, not a 4xx the caller
-    retries. The startup guard in container.py checks CONFIGURATION against
+    retries. The startup guard in bootstrap.py checks CONFIGURATION against
     the schema; this check validates REALITY against configuration, on the
     first embedded batch of each ingestion (ADR-0001).
     """

@@ -44,7 +44,7 @@ chunk → embed in batches            (NO session, NO transaction, NO tx to
 ```
 
 The composition root wires the port with `repository_scope_factory`
-(container.py), which also re-applies the outage doctrine at COMMIT time
+(bootstrap.py), which also re-applies the outage doctrine at COMMIT time
 (`is_db_outage_error` → `KnowledgeBaseUnavailableError` → 503), because
 commit lives in `session_scope`, outside the repository's own translation.
 

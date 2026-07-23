@@ -14,12 +14,10 @@ from knowledge_assistant.assistant.domain.exceptions import (
 from knowledge_assistant.knowledge_base.domain.exceptions import (
     ConcurrentIngestionError,
     DocumentNotFoundError,
-)
-from knowledge_assistant.shared.domain.exceptions import (
-    DomainError,
     EmbeddingProviderUnavailableError,
 )
-from knowledge_assistant.shared.infrastructure.error_handlers import _status_for
+from knowledge_assistant.platform.http.error_handlers import _status_for
+from knowledge_assistant.shared_kernel.exceptions import DomainError
 
 
 class ForgottenDomainError(DomainError):

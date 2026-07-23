@@ -82,7 +82,7 @@ nodes and edges and returns the **uncompiled** graph; the caller compiles it
 (`.compile()`). That keeps the wiring testable and leaves the door open to
 attaching a checkpointer later without touching this code (roadmap item 4).
 
-### The use case — `application/service.py`
+### The use case — `application/ask.py`
 
 `AskQuestion` is the entry point the HTTP layer depends on. It validates the
 question, invokes the compiled graph, and unwraps the final `Answer`. It
