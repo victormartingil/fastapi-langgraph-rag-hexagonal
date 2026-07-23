@@ -28,7 +28,7 @@ delay vacuum and hold locks they do not need.
 ## Decision
 
 `IngestDocument` depends on a new port, `OpenRepository`
-(`documents/application/ports.py`): a zero-argument factory returning an
+(`knowledge_base/application/ports.py`): a zero-argument factory returning an
 async context manager around a `DocumentRepository`. Each `async with` is
 one SHORT unit of work (session + transaction via `session_scope`), opened
 and committed in milliseconds:

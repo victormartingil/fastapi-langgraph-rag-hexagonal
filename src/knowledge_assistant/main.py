@@ -16,10 +16,10 @@ from fastapi import Depends, FastAPI, Response, status
 from sqlalchemy import text
 
 from knowledge_assistant import container as container_module
-from knowledge_assistant.chat.infrastructure.http.router import router as chat_router
+from knowledge_assistant.assistant.infrastructure.http.router import router as chat_router
 from knowledge_assistant.config import Settings, get_settings
 from knowledge_assistant.container import Container, build_container
-from knowledge_assistant.documents.infrastructure.http.router import router as documents_router
+from knowledge_assistant.knowledge_base.infrastructure.http.router import router as documents_router
 from knowledge_assistant.shared.infrastructure.error_handlers import register_error_handlers
 from knowledge_assistant.shared.infrastructure.logging import configure_logging
 from knowledge_assistant.shared.infrastructure.middleware import CorrelationIdMiddleware

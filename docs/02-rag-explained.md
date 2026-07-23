@@ -32,14 +32,14 @@ chunk ──► embed each chunk ──► PostgreSQL    hybrid search (dense + 
 
 ## Step 1 — Extraction
 
-`documents/infrastructure/extraction/`. Uploads arrive as bytes; an adapter
+`knowledge_base/infrastructure/extraction/`. Uploads arrive as bytes; an adapter
 per format (`PlainTextExtractor`, `PdfTextExtractor`) turns them into text.
 The use case picks the first extractor whose `supports(file_name)` matches —
 adding DOCX later is one new adapter.
 
 ## Step 2 — Chunking
 
-`documents/domain/chunking.py`. Embeddings degrade when text is too long
+`knowledge_base/domain/chunking.py`. Embeddings degrade when text is too long
 (everything averages into mush) and retrieval degrades when chunks are too
 short (no context). So we split into overlapping pieces of ~800 characters:
 
@@ -63,7 +63,7 @@ next to the chunk in a `vector(768)` pgvector column.
 
 ## Step 4 — Hybrid retrieval
 
-`chat/infrastructure/retrieval/pgvector_hybrid.py`. Neither search style is
+`knowledge_base/infrastructure/retrieval/pgvector_hybrid.py`. Neither search style is
 enough alone:
 
 |                     | Dense (vector) search           | Full-text (tsvector) search      |
@@ -150,7 +150,7 @@ extension-level commitment.
 
 ## Step 5 — Grading
 
-`chat/application/graph/nodes.py::make_grade_node`. Retrieval always returns
+`assistant/application/graph/nodes.py::make_grade_node`. Retrieval always returns
 *something*, even for nonsense questions — the top result of a bad search is
 still a result. Grading filters chunks below `min_relevance_score`.
 

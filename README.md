@@ -69,9 +69,10 @@ honest refusal instead. Interactive docs at `http://localhost:8000/docs`; a
 
 ## Architecture
 
-Two bounded contexts — `documents` (write side) and `chat` (read side) — each
-layered **domain ← application ← infrastructure**, with dependencies pointing
-inward only. The rule is executable: import-linter contracts run as tests.
+Two bounded contexts — `knowledge_base` (document lifecycle and search) and
+`assistant` (grounded Q&A) — each layered
+**domain ← application ← infrastructure**, with dependencies pointing inward
+only. The rule is executable: import-linter contracts run as tests.
 
 ```mermaid
 flowchart TB
@@ -80,17 +81,17 @@ flowchart TB
         CR["chat router"]
     end
 
-    subgraph DOC["documents context (write side)"]
-        DUC["IngestDocument / GetDocument / ListDocuments<br/>(use cases)"]
-        DP["ports: DocumentRepository, EmbeddingProvider, TextExtractor<br/>(typing.Protocol)"]
+    subgraph DOC["knowledge-base context"]
+        DUC["IngestDocument / queries / SearchKnowledge<br/>(use cases)"]
+        DP["ports: repositories, extraction, embeddings, retrieval<br/>(typing.Protocol)"]
         DD["domain: Document, Chunk, chunking<br/>(frozen dataclasses, pure)"]
         DUC --> DP --> DD
     end
 
-    subgraph CHAT["chat context (read side)"]
+    subgraph CHAT["assistant context"]
         AQS["AskQuestion (use case)"]
         G["LangGraph: retrieve → grade → generate | refuse"]
-        CP["ports: ChunkRetriever, AnswerGenerator"]
+        CP["ports: KnowledgeSearch, AnswerGenerator"]
         CD["domain: Answer, Source, RetrievedChunk"]
         AQS --> G --> CP --> CD
     end
@@ -108,7 +109,9 @@ flowchart TB
     REPO -.implements.-> DP
     EMB -.implements.-> DP
     EXT -.implements.-> DP
-    RET -.implements.-> CP
+    RET -.implements.-> DP
+    BRIDGE["InProcessKnowledgeSearchAdapter"] -.implements.-> CP
+    BRIDGE --> DUC
     LLM -.implements.-> CP
 
     DB[("PostgreSQL + pgvector")]
@@ -139,14 +142,14 @@ src/knowledge_assistant/
 ├── main.py                  # create_app() — entry point
 ├── config.py                # Settings (pydantic-settings, KA_* env vars)
 ├── container.py             # composition root: the ONLY place adapters are chosen
-├── documents/               # bounded context: write side (ingestion)
+├── knowledge_base/          # bounded context: documents, indexing, retrieval
 │   ├── domain/              #   models, value objects, chunking (pure)
-│   ├── application/         #   ports (Protocols) + use cases
-│   └── infrastructure/      #   http / persistence / embeddings / extraction
-├── chat/                    # bounded context: read side (Q&A)
+│   ├── application/         #   ports (Protocols) + public use cases
+│   └── infrastructure/      #   HTTP / persistence / extraction / retrieval
+├── assistant/               # bounded context: grounded Q&A
 │   ├── domain/              #   Answer, Source, RetrievedChunk
 │   ├── application/         #   ports, AskQuestion, graph/ (LangGraph)
-│   └── infrastructure/      #   http / retrieval (hybrid SQL) / llm (Pydantic AI)
+│   └── infrastructure/      #   HTTP / knowledge bridge / LLM
 └── shared/                  # shared kernel: exceptions, EmbeddingVector/port,
                              # database, logging, middleware, Alembic migrations
 tests/
@@ -296,14 +299,14 @@ e.g. `feat(chat): add grading node`.
 **Junior** — "make it run, then follow one request":
 1. Quick start above → play with `/docs`.
 2. `docs/02-rag-explained.md` (the concepts).
-3. Read `documents/application/services.py` (a use case end-to-end), then
+3. Read `knowledge_base/application/services.py` (a use case end-to-end), then
    `tests/unit/test_document_services.py` (how it's tested without Docker).
 4. Exercise: add a new file type extractor (`.html`) — port, adapter, wiring
    in `container.py`, unit test.
 
 **Mid** — "own a feature":
 1. `docs/01-hexagonal-architecture-in-python.md` and the ADRs.
-2. `chat/application/graph/` — state, nodes, routing, builder.
+2. `assistant/application/graph/` — state, nodes, routing, builder.
 3. `docs/04-testing-strategy.md`; break an import-linter rule on purpose and
    watch CI catch it.
 4. Exercise: implement the LLM-based grader from
@@ -313,7 +316,7 @@ e.g. `feat(chat): add grading node`.
 1. ADRs [0001](docs/adr/0001-pgvector-as-vector-store.md) /
    [0002](docs/adr/0002-langgraph-in-application-layer.md) /
    [0003](docs/adr/0003-hybrid-retrieval.md) — argue with them.
-2. The RRF SQL in `chat/infrastructure/retrieval/pgvector_hybrid.py` and its
+2. The RRF SQL in `knowledge_base/infrastructure/retrieval/pgvector_hybrid.py` and its
    integration tests.
 3. `docs/05-java-to-python-cheatsheet.md` if you mentor Java developers.
 4. Exercise: pick a roadmap item below and design it on paper first.

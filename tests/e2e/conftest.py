@@ -21,19 +21,25 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from knowledge_assistant import container as container_module
-from knowledge_assistant.chat.application.graph.builder import build_rag_graph
-from knowledge_assistant.chat.application.service import AskQuestion
-from knowledge_assistant.chat.domain.exceptions import GenerationUnavailableError
-from knowledge_assistant.chat.domain.models import Answer, RetrievedChunk, Source
-from knowledge_assistant.chat.infrastructure.retrieval.pgvector_hybrid import (
-    PgVectorHybridRetriever,
+from knowledge_assistant.assistant.application.graph.builder import build_rag_graph
+from knowledge_assistant.assistant.application.service import AskQuestion
+from knowledge_assistant.assistant.domain.exceptions import GenerationUnavailableError
+from knowledge_assistant.assistant.domain.models import Answer, RetrievedChunk, Source
+from knowledge_assistant.assistant.infrastructure.knowledge.in_process import (
+    InProcessKnowledgeSearchAdapter,
 )
 from knowledge_assistant.config import Settings
 from knowledge_assistant.container import Container, build_container
-from knowledge_assistant.documents.application.services import IngestDocument
-from knowledge_assistant.documents.infrastructure.extraction.pdf import PdfTextExtractor
-from knowledge_assistant.documents.infrastructure.extraction.plain_text import (
+from knowledge_assistant.knowledge_base.application.services import (
+    IngestDocument,
+    SearchKnowledge,
+)
+from knowledge_assistant.knowledge_base.infrastructure.extraction.pdf import PdfTextExtractor
+from knowledge_assistant.knowledge_base.infrastructure.extraction.plain_text import (
     PlainTextExtractor,
+)
+from knowledge_assistant.knowledge_base.infrastructure.retrieval.pgvector_hybrid import (
+    PgVectorHybridRetriever,
 )
 from knowledge_assistant.main import create_app
 from knowledge_assistant.shared.domain.exceptions import (
@@ -195,8 +201,9 @@ def _install_dependency_overrides(app: FastAPI) -> None:
         session: Annotated[AsyncSession, Depends(container_module.provide_session)],
     ) -> AskQuestion:
         retriever = PgVectorHybridRetriever(session, fake_embeddings)
+        knowledge_search = InProcessKnowledgeSearchAdapter(SearchKnowledge(retriever))
         graph = build_rag_graph(
-            retriever, ScriptedAnswerGenerator(), min_relevance_score=0.028
+            knowledge_search, ScriptedAnswerGenerator(), min_relevance_score=0.028
         ).compile()
         return AskQuestion(graph)
 

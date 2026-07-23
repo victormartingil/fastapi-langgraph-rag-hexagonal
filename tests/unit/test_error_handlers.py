@@ -6,12 +6,12 @@ unmapped DomainError is a server-side omission (someone forgot to add the
 entry), never a client fault — so the default is 500, not 400.
 """
 
-from knowledge_assistant.chat.domain.exceptions import (
+from knowledge_assistant.assistant.domain.exceptions import (
     EmptyQuestionError,
     GenerationUnavailableError,
     RetrievalUnavailableError,
 )
-from knowledge_assistant.documents.domain.exceptions import (
+from knowledge_assistant.knowledge_base.domain.exceptions import (
     ConcurrentIngestionError,
     DocumentNotFoundError,
 )

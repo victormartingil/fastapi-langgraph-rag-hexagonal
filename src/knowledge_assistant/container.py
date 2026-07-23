@@ -23,39 +23,43 @@ import structlog
 from fastapi import Depends, HTTPException, Request, status
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
-from knowledge_assistant.chat.application.graph.builder import build_rag_graph
-from knowledge_assistant.chat.application.ports import AnswerGenerator
-from knowledge_assistant.chat.application.service import AskQuestion
-from knowledge_assistant.chat.infrastructure.llm.pydantic_ai import PydanticAiAnswerGenerator
-from knowledge_assistant.chat.infrastructure.retrieval.pgvector_hybrid import (
-    PgVectorHybridRetriever,
+from knowledge_assistant.assistant.application.graph.builder import build_rag_graph
+from knowledge_assistant.assistant.application.ports import AnswerGenerator
+from knowledge_assistant.assistant.application.service import AskQuestion
+from knowledge_assistant.assistant.infrastructure.knowledge.in_process import (
+    InProcessKnowledgeSearchAdapter,
 )
+from knowledge_assistant.assistant.infrastructure.llm.pydantic_ai import PydanticAiAnswerGenerator
 from knowledge_assistant.config import Settings
-from knowledge_assistant.documents.application.ports import (
+from knowledge_assistant.knowledge_base.application.ports import (
     DocumentRepository,
     OpenRepository,
     TextExtractor,
 )
-from knowledge_assistant.documents.application.services import (
+from knowledge_assistant.knowledge_base.application.services import (
     GetDocument,
     IngestDocument,
     ListDocuments,
+    SearchKnowledge,
 )
-from knowledge_assistant.documents.domain.exceptions import (
+from knowledge_assistant.knowledge_base.domain.exceptions import (
     KnowledgeBaseUnavailableError,
 )
-from knowledge_assistant.documents.infrastructure.embeddings.ollama import (
+from knowledge_assistant.knowledge_base.infrastructure.embeddings.ollama import (
     OllamaEmbeddingProvider,
 )
-from knowledge_assistant.documents.infrastructure.embeddings.openai import (
+from knowledge_assistant.knowledge_base.infrastructure.embeddings.openai import (
     OpenAiEmbeddingProvider,
 )
-from knowledge_assistant.documents.infrastructure.extraction.pdf import PdfTextExtractor
-from knowledge_assistant.documents.infrastructure.extraction.plain_text import (
+from knowledge_assistant.knowledge_base.infrastructure.extraction.pdf import PdfTextExtractor
+from knowledge_assistant.knowledge_base.infrastructure.extraction.plain_text import (
     PlainTextExtractor,
 )
-from knowledge_assistant.documents.infrastructure.persistence.repository import (
+from knowledge_assistant.knowledge_base.infrastructure.persistence.repository import (
     SqlAlchemyDocumentRepository,
+)
+from knowledge_assistant.knowledge_base.infrastructure.retrieval.pgvector_hybrid import (
+    PgVectorHybridRetriever,
 )
 from knowledge_assistant.shared.application.ports import EmbeddingProvider
 from knowledge_assistant.shared.infrastructure.database import (
@@ -387,8 +391,9 @@ def provide_ask_question(
         rrf_k=settings.rrf_k,
         tsconfig=settings.fts_language,
     )
+    knowledge_search = InProcessKnowledgeSearchAdapter(SearchKnowledge(retriever))
     graph = build_rag_graph(
-        retriever,
+        knowledge_search,
         container.answer_generator,
         min_relevance_score=settings.min_relevance_score,
     ).compile()

@@ -7,26 +7,26 @@ relevant context survives grading, the answer is an honest refusal.
 
 import pytest
 
-from knowledge_assistant.chat.application.graph.builder import build_rag_graph
-from knowledge_assistant.chat.application.graph.nodes import (
+from knowledge_assistant.assistant.application.graph.builder import build_rag_graph
+from knowledge_assistant.assistant.application.graph.nodes import (
     REFUSAL_MESSAGE,
     make_generate_node,
     make_grade_node,
     make_retrieve_node,
     route_after_grading,
 )
-from knowledge_assistant.chat.application.graph.state import RagState
-from knowledge_assistant.chat.application.ports import ChunkRetriever
-from knowledge_assistant.chat.application.service import AskQuestion
-from knowledge_assistant.chat.domain.exceptions import (
+from knowledge_assistant.assistant.application.graph.state import RagState
+from knowledge_assistant.assistant.application.ports import KnowledgeSearch
+from knowledge_assistant.assistant.application.service import AskQuestion
+from knowledge_assistant.assistant.domain.exceptions import (
     EmptyQuestionError,
     RetrievalUnavailableError,
 )
-from knowledge_assistant.chat.domain.models import Answer, RetrievedChunk, Source
+from knowledge_assistant.assistant.domain.models import Answer, RetrievedChunk, Source
 from tests.unit.fakes import (
-    FailingChunkRetriever,
+    FailingKnowledgeSearch,
     FakeAnswerGenerator,
-    FakeChunkRetriever,
+    FakeKnowledgeSearch,
     make_retrieved_chunk,
 )
 
@@ -49,7 +49,7 @@ def make_answer(chunks_count: int = 1) -> Answer:
 
 class TestNodes:
     async def test_retrieve_node_calls_the_retriever_port(self) -> None:
-        retriever = FakeChunkRetriever([make_retrieved_chunk()])
+        retriever = FakeKnowledgeSearch([make_retrieved_chunk()])
         node = make_retrieve_node(retriever)
 
         update = await node(RagState(question="q?", top_k=5))
@@ -93,13 +93,13 @@ class TestNodes:
 
 class TestAskQuestionOverCompiledGraph:
     def build_use_case(
-        self, retriever: ChunkRetriever, generator: FakeAnswerGenerator
+        self, retriever: KnowledgeSearch, generator: FakeAnswerGenerator
     ) -> AskQuestion:
         graph = build_rag_graph(retriever, generator, min_relevance_score=0.028).compile()
         return AskQuestion(graph)
 
     async def test_relevant_evidence_produces_a_cited_answer(self) -> None:
-        retriever = FakeChunkRetriever([make_retrieved_chunk(score=0.033)])
+        retriever = FakeKnowledgeSearch([make_retrieved_chunk(score=0.033)])
         generator = FakeAnswerGenerator(make_answer())
 
         answer = await self.build_use_case(retriever, generator).execute(
@@ -112,7 +112,7 @@ class TestAskQuestionOverCompiledGraph:
 
     async def test_no_relevant_evidence_produces_an_honest_refusal(self) -> None:
         """THE key RAG behavior: better a refusal than a hallucination."""
-        retriever = FakeChunkRetriever([make_retrieved_chunk(score=0.001)])
+        retriever = FakeKnowledgeSearch([make_retrieved_chunk(score=0.001)])
         generator = FakeAnswerGenerator(make_answer())
 
         answer = await self.build_use_case(retriever, generator).execute(
@@ -124,7 +124,7 @@ class TestAskQuestionOverCompiledGraph:
         assert generator.calls == []  # the LLM was never even called
 
     async def test_empty_question_is_rejected_before_touching_the_graph(self) -> None:
-        use_case = self.build_use_case(FakeChunkRetriever([]), FakeAnswerGenerator(make_answer()))
+        use_case = self.build_use_case(FakeKnowledgeSearch([]), FakeAnswerGenerator(make_answer()))
         with pytest.raises(EmptyQuestionError):
             await use_case.execute("   ")
 
@@ -134,7 +134,7 @@ class TestAskQuestionOverCompiledGraph:
         refusal (that would lie: no evidence ≠ unreachable evidence) — the
         signal propagates to the HTTP boundary, which answers 503."""
         use_case = self.build_use_case(
-            FailingChunkRetriever(RetrievalUnavailableError("provider down")),
+            FailingKnowledgeSearch(RetrievalUnavailableError("provider down")),
             FakeAnswerGenerator(make_answer()),
         )
 
@@ -144,7 +144,7 @@ class TestAskQuestionOverCompiledGraph:
     async def test_default_top_k_comes_from_the_constructor(self) -> None:
         """KA_RETRIEVAL_TOP_K wiring: a caller who does not pass top_k gets
         the server default, not a hardcoded one."""
-        retriever = FakeChunkRetriever([make_retrieved_chunk()])
+        retriever = FakeKnowledgeSearch([make_retrieved_chunk()])
         generator = FakeAnswerGenerator(make_answer())
         graph = build_rag_graph(retriever, generator, min_relevance_score=0.0).compile()
         use_case = AskQuestion(graph, default_top_k=3)

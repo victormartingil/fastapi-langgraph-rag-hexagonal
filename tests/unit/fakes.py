@@ -13,12 +13,12 @@ changes, mypy (run over tests/ too) flags the fake.
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
-from knowledge_assistant.chat.domain.models import Answer, RetrievedChunk
-from knowledge_assistant.documents.application.ports import OpenRepository
-from knowledge_assistant.documents.application.read_models import DocumentSummary
-from knowledge_assistant.documents.domain.exceptions import DuplicateDocumentError
-from knowledge_assistant.documents.domain.models import Document
-from knowledge_assistant.documents.domain.value_objects import DocumentId
+from knowledge_assistant.assistant.domain.models import Answer, RetrievedChunk
+from knowledge_assistant.knowledge_base.application.ports import OpenRepository
+from knowledge_assistant.knowledge_base.application.read_models import DocumentSummary
+from knowledge_assistant.knowledge_base.domain.exceptions import DuplicateDocumentError
+from knowledge_assistant.knowledge_base.domain.models import Document
+from knowledge_assistant.knowledge_base.domain.value_objects import DocumentId
 from knowledge_assistant.shared.domain.value_objects import EmbeddingVector
 
 
@@ -169,25 +169,25 @@ class FakeTextExtractor:
         return self.text if self.text is not None else data.decode("utf-8")
 
 
-class FakeChunkRetriever:
-    """Implements ChunkRetriever with canned results (records the calls)."""
+class FakeKnowledgeSearch:
+    """Implements KnowledgeSearch with canned results (records the calls)."""
 
     def __init__(self, chunks: list[RetrievedChunk]) -> None:
         self.chunks = chunks
         self.calls: list[tuple[str, int]] = []
 
-    async def retrieve(self, question: str, limit: int) -> list[RetrievedChunk]:
+    async def search(self, question: str, limit: int) -> list[RetrievedChunk]:
         self.calls.append((question, limit))
         return self.chunks[:limit]
 
 
-class FailingChunkRetriever:
-    """Implements ChunkRetriever by raising — for outage-path tests."""
+class FailingKnowledgeSearch:
+    """Implements KnowledgeSearch by raising — for outage-path tests."""
 
     def __init__(self, error: Exception) -> None:
         self.error = error
 
-    async def retrieve(self, question: str, limit: int) -> list[RetrievedChunk]:
+    async def search(self, question: str, limit: int) -> list[RetrievedChunk]:
         raise self.error
 
 

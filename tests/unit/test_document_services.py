@@ -7,21 +7,21 @@ and no network.
 
 import pytest
 
-from knowledge_assistant.documents.application.read_models import DocumentSummary
-from knowledge_assistant.documents.application.services import (
+from knowledge_assistant.knowledge_base.application.read_models import DocumentSummary
+from knowledge_assistant.knowledge_base.application.services import (
     GetDocument,
     IngestDocument,
     ListDocuments,
 )
-from knowledge_assistant.documents.domain.exceptions import (
+from knowledge_assistant.knowledge_base.domain.exceptions import (
     ConcurrentIngestionError,
     DocumentNotFoundError,
     EmbeddingDimensionMismatchError,
     EmptyDocumentError,
     UnsupportedFileTypeError,
 )
-from knowledge_assistant.documents.domain.models import Document
-from knowledge_assistant.documents.domain.value_objects import DocumentId
+from knowledge_assistant.knowledge_base.domain.models import Document
+from knowledge_assistant.knowledge_base.domain.value_objects import DocumentId
 from knowledge_assistant.shared.domain.value_objects import EmbeddingVector
 from tests.unit.fakes import (
     FakeDocumentRepository,

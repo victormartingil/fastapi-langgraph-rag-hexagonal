@@ -142,7 +142,7 @@ override the `provide_*` dependency (e2e).
 
 ## Bounded contexts
 
-`documents` (write side) and `chat` (read side) never import each other —
+`knowledge_base` (document lifecycle and search) and `assistant` (grounded Q&A) never import each other —
 enforced by contract. The write side stores knowledge; the read side queries
 the same tables. When a concept is genuinely shared (the embedding port), it
 moves to the `shared` kernel, not to "the other context imports this one".
