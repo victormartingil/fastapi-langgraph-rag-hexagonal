@@ -1,6 +1,6 @@
 """knowledge_assistant — a didactic RAG API built with hexagonal architecture.
 
-The package is organized into bounded contexts (`documents`, `chat`) plus a
+The package is organized into bounded contexts (`knowledge_base`, `assistant`) plus a
 `shared` kernel. Each context follows the same three-layer rule:
 
     domain  <-  application  <-  infrastructure

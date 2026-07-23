@@ -7,7 +7,7 @@ depends on these boundaries.
 
 import pytest
 
-from knowledge_assistant.documents.domain.chunking import chunk_text
+from knowledge_assistant.knowledge_base.domain.chunking import chunk_text
 
 
 class TestChunkText:

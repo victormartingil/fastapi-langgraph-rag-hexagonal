@@ -26,7 +26,7 @@ from dotenv import load_dotenv
 from sqlalchemy import Connection, pool
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
-from knowledge_assistant.documents.infrastructure.persistence.models import Base
+from knowledge_assistant.knowledge_base.infrastructure.persistence.models import Base
 
 load_dotenv()  # override=False: real environment variables keep precedence
 

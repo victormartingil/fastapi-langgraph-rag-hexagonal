@@ -26,15 +26,15 @@ import pytest
 import respx
 from pydantic_ai.exceptions import ModelHTTPError
 
-from knowledge_assistant.chat.domain.exceptions import GenerationUnavailableError
-from knowledge_assistant.chat.domain.models import RetrievedChunk
-from knowledge_assistant.chat.infrastructure.llm.pydantic_ai import (
+from knowledge_assistant.assistant.domain.exceptions import GenerationUnavailableError
+from knowledge_assistant.assistant.domain.models import RetrievedChunk
+from knowledge_assistant.assistant.infrastructure.llm.pydantic_ai import (
     PydanticAiAnswerGenerator,
 )
-from knowledge_assistant.documents.infrastructure.embeddings.ollama import (
+from knowledge_assistant.knowledge_base.infrastructure.embeddings.ollama import (
     OllamaEmbeddingProvider,
 )
-from knowledge_assistant.documents.infrastructure.embeddings.openai import (
+from knowledge_assistant.knowledge_base.infrastructure.embeddings.openai import (
     OpenAiEmbeddingProvider,
 )
 from knowledge_assistant.shared.domain.exceptions import (

@@ -42,8 +42,8 @@
 
 | You'd look for…               | Go to                                                              |
 | ----------------------------- | ------------------------------------------------------------------ |
-| the "service layer"           | `documents/application/services.py`, `chat/application/service.py` |
+| the "service layer"           | `knowledge_base/application/services.py`, `assistant/application/service.py` |
 | the "repository interfaces"   | `*/application/ports.py`                                           |
-| the "JPA entities"            | `documents/infrastructure/persistence/models.py`                   |
+| the "JPA entities"            | `knowledge_base/infrastructure/persistence/models.py`                   |
 | the "Spring config"           | `container.py`, `config.py`                                        |
 | the "integration tests"       | `tests/integration/`, `tests/e2e/`                                 |

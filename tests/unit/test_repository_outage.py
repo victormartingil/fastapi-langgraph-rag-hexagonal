@@ -3,7 +3,7 @@
 Symmetric with the retriever's translation on the read path
 (test_retriever_errors.py): a DEAD database (SQLAlchemy's
 OperationalError/InterfaceError — connection refused, dropped, partitioned)
-becomes the documents context's own 503-class domain signal,
+becomes the knowledge-base context's own 503-class domain signal,
 KnowledgeBaseUnavailableError. SQL BUGS (ProgrammingError) are NOT
 translated: they are 500-class defects and must stay loud.
 """
@@ -14,12 +14,12 @@ import pytest
 from sqlalchemy.exc import InterfaceError, OperationalError, ProgrammingError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from knowledge_assistant.documents.domain.exceptions import (
+from knowledge_assistant.knowledge_base.domain.exceptions import (
     KnowledgeBaseUnavailableError,
 )
-from knowledge_assistant.documents.domain.models import Document
-from knowledge_assistant.documents.domain.value_objects import DocumentId
-from knowledge_assistant.documents.infrastructure.persistence.repository import (
+from knowledge_assistant.knowledge_base.domain.models import Document
+from knowledge_assistant.knowledge_base.domain.value_objects import DocumentId
+from knowledge_assistant.knowledge_base.infrastructure.persistence.repository import (
     SqlAlchemyDocumentRepository,
 )
 

@@ -15,7 +15,7 @@ conditional branch. Two placement options:
 
 ## Decision
 
-The LangGraph graph lives in `chat/application/graph/`. Nodes are factory
+The LangGraph graph lives in `assistant/application/graph/`. Nodes are factory
 functions closing over Protocol ports. The domain never imports LangGraph
 (enforced by import-linter). The compiled graph is injected into the
 `AskQuestion` use case by the composition root.

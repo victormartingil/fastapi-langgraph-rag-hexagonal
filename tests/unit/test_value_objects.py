@@ -4,7 +4,7 @@ import uuid
 
 import pytest
 
-from knowledge_assistant.documents.domain.value_objects import ChunkText, DocumentId
+from knowledge_assistant.knowledge_base.domain.value_objects import ChunkText, DocumentId
 from knowledge_assistant.shared.domain.value_objects import EmbeddingVector
 
 

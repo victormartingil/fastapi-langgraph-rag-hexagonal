@@ -23,9 +23,10 @@ ADAPTER_PREFIXES = (
     "Pdf",
     "PlainText",
     "PydanticAi",
+    "InProcess",
 )
 
-CONTEXTS = ("documents", "chat")
+CONTEXTS = ("knowledge_base", "assistant")
 
 
 def _walk_modules(package_name: str) -> Iterator[str]:
@@ -63,8 +64,8 @@ def test_adapter_classes_carry_a_technology_prefix() -> None:
 def test_port_modules_contain_only_protocols() -> None:
     violations: list[str] = []
     port_modules = [
-        "knowledge_assistant.documents.application.ports",
-        "knowledge_assistant.chat.application.ports",
+        "knowledge_assistant.knowledge_base.application.ports",
+        "knowledge_assistant.assistant.application.ports",
         "knowledge_assistant.shared.application.ports",
     ]
     for module_name in port_modules:

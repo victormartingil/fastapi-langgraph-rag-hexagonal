@@ -2,8 +2,8 @@
 
 Embedding is the canonical example in this system:
 
-- the write side (documents) embeds chunks during ingestion;
-- the read side (chat) embeds the question before retrieval.
+- the write side (knowledge base) embeds chunks during ingestion;
+- the read side (assistant) embeds the question before retrieval.
 
 If the port lived in either context, the other would have to import it — a
 forbidden cross-context dependency. So the contract lives here, in the shared

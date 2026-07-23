@@ -3,7 +3,7 @@
 PgVectorHybridRetriever sits at the port boundary: like the repository
 translating IntegrityError into DuplicateDocumentError, it translates
 TRANSIENT infrastructure failures (embedding provider down, database
-unreachable) into RetrievalUnavailableError, which the HTTP layer maps to
+unreachable) into KnowledgeBaseUnavailableError, which the HTTP layer maps to
 503. Permanent failures — a 401 from the provider, a SQL programming bug —
 must NOT be translated: they are server errors and stay 500-visible.
 """
@@ -15,8 +15,8 @@ import pytest
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from knowledge_assistant.chat.domain.exceptions import RetrievalUnavailableError
-from knowledge_assistant.chat.infrastructure.retrieval.pgvector_hybrid import (
+from knowledge_assistant.knowledge_base.domain.exceptions import KnowledgeBaseUnavailableError
+from knowledge_assistant.knowledge_base.infrastructure.retrieval.pgvector_hybrid import (
     PgVectorHybridRetriever,
 )
 from knowledge_assistant.shared.domain.exceptions import (
@@ -72,18 +72,18 @@ class TestProviderOutageTranslation:
     async def test_transient_provider_failure_becomes_retrieval_unavailable(self) -> None:
         retriever = make_retriever(provider_error=httpx.ConnectError("connection refused"))
 
-        with pytest.raises(RetrievalUnavailableError, match="temporarily unavailable"):
+        with pytest.raises(KnowledgeBaseUnavailableError, match="temporarily unavailable"):
             await retriever.retrieve("q?", limit=5)
 
     async def test_port_contract_error_is_rewrapped_as_the_chat_signal(self) -> None:
         """Real adapters honor the port contract (EmbeddingProviderUnavailableError);
-        the chat context re-wraps it as its OWN domain signal so contexts
-        stay decoupled and the HTTP layer sees RetrievalUnavailableError."""
+        the assistant context re-wraps it as its OWN domain signal so contexts
+        stay decoupled and the HTTP layer sees KnowledgeBaseUnavailableError."""
         retriever = make_retriever(
             provider_error=EmbeddingProviderUnavailableError("provider down")
         )
 
-        with pytest.raises(RetrievalUnavailableError, match="temporarily unavailable"):
+        with pytest.raises(KnowledgeBaseUnavailableError, match="temporarily unavailable"):
             await retriever.retrieve("q?", limit=5)
 
     async def test_permanent_provider_failure_is_not_translated(self) -> None:
@@ -103,7 +103,7 @@ class TestDatabaseOutageTranslation:
         error = OperationalError("SELECT 1", {}, Exception("connection refused"))
         retriever = make_retriever(session_error=error)
 
-        with pytest.raises(RetrievalUnavailableError, match="database unreachable"):
+        with pytest.raises(KnowledgeBaseUnavailableError, match="database unreachable"):
             await retriever.retrieve("q?", limit=5)
 
     async def test_raw_asyncpg_transport_failure_is_also_an_outage(self) -> None:
@@ -113,7 +113,7 @@ class TestDatabaseOutageTranslation:
             session_error=OSError("Multiple exceptions: [Errno 61] Connect call failed")
         )
 
-        with pytest.raises(RetrievalUnavailableError, match="database unreachable"):
+        with pytest.raises(KnowledgeBaseUnavailableError, match="database unreachable"):
             await retriever.retrieve("q?", limit=5)
 
     async def test_sql_bugs_are_not_translated(self) -> None:

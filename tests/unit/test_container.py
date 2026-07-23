@@ -10,7 +10,7 @@ import httpx
 import pytest
 from pydantic import ValidationError
 
-from knowledge_assistant.chat.infrastructure.llm.pydantic_ai import (
+from knowledge_assistant.assistant.infrastructure.llm.pydantic_ai import (
     PydanticAiAnswerGenerator,
 )
 from knowledge_assistant.config import Settings

@@ -24,12 +24,12 @@ from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
-from knowledge_assistant.chat.domain.exceptions import (
+from knowledge_assistant.assistant.domain.exceptions import (
     EmptyQuestionError,
     GenerationUnavailableError,
     RetrievalUnavailableError,
 )
-from knowledge_assistant.documents.domain.exceptions import (
+from knowledge_assistant.knowledge_base.domain.exceptions import (
     ConcurrentIngestionError,
     DocumentNotFoundError,
     EmptyDocumentError,

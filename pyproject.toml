@@ -156,46 +156,50 @@ include_external_packages = true
 # infrastructure -> application -> domain. (Layers are listed highest first;
 # a layer may not import any layer listed above it.)
 [[tool.importlinter.contracts]]
-name = "Documents context: hexagonal layers (infra -> application -> domain)"
+name = "Knowledge-base context: hexagonal layers (infra -> application -> domain)"
 type = "layers"
 layers = [
-    "knowledge_assistant.documents.infrastructure",
-    "knowledge_assistant.documents.application",
-    "knowledge_assistant.documents.domain",
+    "knowledge_assistant.knowledge_base.infrastructure",
+    "knowledge_assistant.knowledge_base.application",
+    "knowledge_assistant.knowledge_base.domain",
 ]
 
 [[tool.importlinter.contracts]]
-name = "Chat context: hexagonal layers (infra -> application -> domain)"
+name = "Assistant context: hexagonal layers (infra -> application -> domain)"
 type = "layers"
 layers = [
-    "knowledge_assistant.chat.infrastructure",
-    "knowledge_assistant.chat.application",
-    "knowledge_assistant.chat.domain",
+    "knowledge_assistant.assistant.infrastructure",
+    "knowledge_assistant.assistant.application",
+    "knowledge_assistant.assistant.domain",
 ]
 
-# Bounded contexts must not depend on each other; they communicate through
-# the database (write side) and the composition root (wiring).
+# Bounded contexts must not depend on each other's internals. The assistant
+# reaches the knowledge base through one explicit in-process adapter and its
+# public application use case; replacing that adapter with HTTP or messaging
+# does not change either context's domain.
 #
 # The `ignore_imports` below are the single sanctioned exception: HTTP
 # adapters import the COMPOSITION ROOT to obtain their use cases via Depends
 # (that is what a composition root is for). What remains forbidden is any
 # direct context -> context import of domain, application or adapter code.
 [[tool.importlinter.contracts]]
-name = "Documents context must not depend on the chat context"
+name = "Knowledge-base context must not depend on the assistant context"
 type = "forbidden"
-source_modules = ["knowledge_assistant.documents"]
-forbidden_modules = ["knowledge_assistant.chat"]
+source_modules = ["knowledge_assistant.knowledge_base"]
+forbidden_modules = ["knowledge_assistant.assistant"]
 ignore_imports = [
-    "knowledge_assistant.documents.infrastructure.http.router -> knowledge_assistant.container",
+    "knowledge_assistant.knowledge_base.infrastructure.http.router -> knowledge_assistant.container",
 ]
 
 [[tool.importlinter.contracts]]
-name = "Chat context must not depend on the documents context"
+name = "Assistant context must not depend on the knowledge-base context"
 type = "forbidden"
-source_modules = ["knowledge_assistant.chat"]
-forbidden_modules = ["knowledge_assistant.documents"]
+source_modules = ["knowledge_assistant.assistant"]
+forbidden_modules = ["knowledge_assistant.knowledge_base"]
 ignore_imports = [
-    "knowledge_assistant.chat.infrastructure.http.router -> knowledge_assistant.container",
+    "knowledge_assistant.assistant.infrastructure.http.router -> knowledge_assistant.container",
+    "knowledge_assistant.assistant.infrastructure.knowledge.in_process -> knowledge_assistant.knowledge_base.application.services",
+    "knowledge_assistant.assistant.infrastructure.knowledge.in_process -> knowledge_assistant.knowledge_base.domain.exceptions",
 ]
 
 # The domain is PURE: no frameworks, no I/O, no vendors. If this contract
@@ -204,8 +208,8 @@ ignore_imports = [
 name = "Domain layers stay pure (no framework or I/O imports)"
 type = "forbidden"
 source_modules = [
-    "knowledge_assistant.documents.domain",
-    "knowledge_assistant.chat.domain",
+    "knowledge_assistant.knowledge_base.domain",
+    "knowledge_assistant.assistant.domain",
     "knowledge_assistant.shared.domain",
 ]
 forbidden_modules = [

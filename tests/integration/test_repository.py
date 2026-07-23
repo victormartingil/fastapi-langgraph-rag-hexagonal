@@ -10,11 +10,11 @@ a single embedding for list rendering.
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from knowledge_assistant.documents.domain.exceptions import DuplicateDocumentError
-from knowledge_assistant.documents.domain.models import Chunk, Document
-from knowledge_assistant.documents.domain.value_objects import ChunkText, DocumentId
-from knowledge_assistant.documents.infrastructure.persistence.models import ChunkModel
-from knowledge_assistant.documents.infrastructure.persistence.repository import (
+from knowledge_assistant.knowledge_base.domain.exceptions import DuplicateDocumentError
+from knowledge_assistant.knowledge_base.domain.models import Chunk, Document
+from knowledge_assistant.knowledge_base.domain.value_objects import ChunkText, DocumentId
+from knowledge_assistant.knowledge_base.infrastructure.persistence.models import ChunkModel
+from knowledge_assistant.knowledge_base.infrastructure.persistence.repository import (
     SqlAlchemyDocumentRepository,
 )
 from knowledge_assistant.shared.domain.value_objects import EmbeddingVector
