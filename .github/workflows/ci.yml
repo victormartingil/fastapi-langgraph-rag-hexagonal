@@ -5,58 +5,111 @@ on:
     branches: [main]
   pull_request:
 
+permissions:
+  contents: read
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  # Fast gate: lint, types, and the Docker-free test suites.
-  quality-and-unit:
+  quality:
+    name: Quality, evals, audit, and distributions
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v5
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
         with:
           enable-cache: true
 
-      - name: Set up Python
-        run: uv python install 3.13
+      - name: Install Python and locked dependencies
+        run: |
+          uv python install 3.12
+          uv sync --locked --python 3.12
 
-      - name: Install dependencies
-        run: uv sync --locked
+      - name: Ruff
+        run: |
+          uv run --locked --python 3.12 ruff check .
+          uv run --locked --python 3.12 ruff format --check .
 
-      - name: Ruff (lint)
-        run: uv run ruff check .
+      - name: mypy strict
+        run: uv run --locked --python 3.12 mypy --strict src tests
 
-      - name: Ruff (format)
-        run: uv run ruff format --check .
+      - name: Deterministic RAG evaluation tests
+        run: uv run --locked --python 3.12 pytest tests/evals -q
 
-      - name: mypy --strict (source AND tests: fakes implement the ports)
-        run: uv run mypy --strict src tests
+      - name: Audit Python dependencies
+        run: uv run --locked --python 3.12 pip-audit
 
-      - name: Unit + architecture tests (no Docker needed)
-        run: uv run pytest tests/unit tests/architecture --cov=src/knowledge_assistant --cov-report=term-missing
+      - name: Build wheel and source distribution
+        run: uv build
 
-  # Slow lane: real PostgreSQL+pgvector via testcontainers. Runs on PRs.
+      - name: Fresh-install wheel and source distribution
+        run: |
+          wheel="$(find dist -maxdepth 1 -name '*.whl' -print -quit)"
+          sdist="$(find dist -maxdepth 1 -name '*.tar.gz' -print -quit)"
+          uv venv --python 3.12 .fresh-wheel
+          uv pip install --python .fresh-wheel/bin/python "$wheel"
+          (cd /tmp && "$GITHUB_WORKSPACE/.fresh-wheel/bin/python" -c \
+            "from importlib.metadata import version; import knowledge_assistant; print(version('fastapi-langgraph-rag-hexagonal'))")
+          uv venv --python 3.12 .fresh-sdist
+          uv pip install --python .fresh-sdist/bin/python "$sdist"
+          (cd /tmp && "$GITHUB_WORKSPACE/.fresh-sdist/bin/python" -c \
+            "from knowledge_assistant.config import Settings; print(Settings().app_name)")
+
+      - name: Export CycloneDX SBOM from the lockfile
+        run: uv export --locked --no-dev --format cyclonedx1.5 --output-file dist/sbom.cdx.json
+
+      - name: Upload distributions and SBOM
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: python-distributions-and-sbom
+          path: dist/
+          if-no-files-found: error
+
+  compatibility:
+    name: Python ${{ matrix.python-version }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.12", "3.13", "3.14"]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          enable-cache: true
+
+      - name: Install Python and locked dependencies
+        run: |
+          uv python install ${{ matrix.python-version }}
+          uv sync --locked --python ${{ matrix.python-version }}
+
+      - name: Unit and architecture tests
+        run: >-
+          uv run --locked --python ${{ matrix.python-version }}
+          pytest tests/unit tests/architecture
+          --cov=src/knowledge_assistant --cov-report=term-missing
+
   integration-and-e2e:
-    if: github.event_name == 'pull_request'
+    name: Integration and E2E (Python 3.14)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v5
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
         with:
           enable-cache: true
 
-      - name: Set up Python
-        run: uv python install 3.13
+      - name: Install Python and locked dependencies
+        run: |
+          uv python install 3.14
+          uv sync --locked --python 3.14
 
-      - name: Install dependencies
-        run: uv sync --locked
-
-      # GitHub runners provide Docker by default; testcontainers does the rest.
-      - name: Integration + e2e tests (testcontainers)
-        run: uv run pytest tests/integration tests/e2e -v
+      - name: Integration and E2E tests
+        run: uv run --locked --python 3.14 pytest tests/integration tests/e2e -v

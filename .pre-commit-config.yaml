@@ -1,34 +1,23 @@
-# Pre-commit hooks: the same checks CI runs, before they reach CI.
-# Setup once:  uv run pre-commit install
-
+# Pre-commit uses the exact versions resolved in uv.lock instead of creating
+# a second, independently resolved tool environment.
 repos:
-  - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.15.22
+  - repo: local
     hooks:
-      - id: ruff
-        args: [--fix]
-      - id: ruff-format
+      - id: ruff-check
+        name: Ruff lint
+        entry: uv run --locked ruff check --fix
+        language: system
+        types: [python]
 
-  - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.20.2
-    hooks:
+      - id: ruff-format
+        name: Ruff format
+        entry: uv run --locked ruff format
+        language: system
+        types: [python]
+
       - id: mypy
-        args: [--strict, src, tests]
-        additional_dependencies:
-          # mypy needs the project's types to check against.
-          - fastapi
-          - pydantic
-          - pydantic-settings
-          - sqlalchemy
-          - pgvector
-          - httpx
-          - structlog
-          - tenacity
-          - langgraph
-          - pydantic-ai
-          - alembic
-          # test imports (mypy checks tests/ too)
-          - pytest
-          - pytest-asyncio
-          - testcontainers
-          - respx
+        name: mypy strict
+        entry: uv run --locked mypy --strict src tests
+        language: system
+        pass_filenames: false
+        types: [python]

@@ -5,7 +5,7 @@ description = "A didactic, production-shaped RAG API: FastAPI + LangGraph + Post
 readme = "README.md"
 license = "MIT"
 authors = [{ name = "Victor Martin", email = "victormartingil@gmail.com" }]
-requires-python = ">=3.13"
+requires-python = ">=3.12,<3.15"
 dependencies = [
     "fastapi>=0.139,<1",
     "uvicorn[standard]>=0.38,<1",
@@ -42,6 +42,7 @@ dev = [
     "mypy>=1.17,<2",
     "import-linter>=2.4,<3",
     "pre-commit>=4,<5",
+    "pip-audit>=2.9,<3",
 ]
 
 [build-system]
@@ -55,7 +56,7 @@ packages = ["src/knowledge_assistant"]
 # Ruff: linter + formatter (replaces black, isort, flake8 and several plugins)
 # ---------------------------------------------------------------------------
 [tool.ruff]
-target-version = "py313"
+target-version = "py312"
 line-length = 100
 src = ["src", "tests"]
 
@@ -91,7 +92,7 @@ known-first-party = ["knowledge_assistant"]
 # mypy --strict: the strictest practical type checking
 # ---------------------------------------------------------------------------
 [tool.mypy]
-python_version = "3.13"
+python_version = "3.12"
 mypy_path = "src"
 strict = true
 warn_unreachable = true

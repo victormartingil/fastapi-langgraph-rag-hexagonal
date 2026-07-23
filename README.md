@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/victormartingil/fastapi-langgraph-rag-hexagonal/actions/workflows/ci.yml/badge.svg)](https://github.com/victormartingil/fastapi-langgraph-rag-hexagonal/actions/workflows/ci.yml)
 [![Coverage](https://img.shields.io/badge/coverage-100%25%20domain%2Bapplication-brightgreen)](#testing)
-[![Python](https://img.shields.io/badge/python-3.13-blue)](https://www.python.org/)
+[![Python](https://img.shields.io/badge/python-3.12%20%7C%203.13%20%7C%203.14-blue)](https://www.python.org/)
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 [![License: MIT](https://img.shields.io/badge/license-MIT-yellow)](LICENSE)
 
@@ -166,22 +166,22 @@ Requires [uv](https://docs.astral.sh/uv/) (and Docker only for the
 integration/e2e suites).
 
 ```bash
-uv sync                                # create .venv, install locked deps
+uv sync --locked                       # create .venv, install locked deps
 cp .env.example .env                   # optional; defaults match docker-compose
 
-uv run ruff check .                    # lint
-uv run ruff format --check .           # format
-uv run mypy --strict src tests         # types (source AND tests)
-uv run pytest tests/unit tests/architecture        # fast, NO Docker needed
-uv run pytest tests/integration tests/e2e          # real Postgres via testcontainers
+uv run --locked ruff check .           # lint
+uv run --locked ruff format --check .  # format
+uv run --locked mypy --strict src tests
+uv run --locked pytest tests/unit tests/architecture
+uv run --locked pytest tests/integration tests/e2e
 ```
 
 Run the API locally against the compose database/ollama:
 
 ```bash
 docker compose up db ollama ollama-init
-uv run alembic upgrade head
-uv run uvicorn knowledge_assistant.main:create_app --factory --reload
+uv run --locked alembic upgrade head
+uv run --locked uvicorn knowledge_assistant.main:create_app --factory --reload
 ```
 
 If you run Ollama **natively** instead of via compose, pull the models once:
@@ -271,16 +271,14 @@ multi-tenant security — JWT/OIDC and rate limiting are Phase 2
   `KA_OTEL_ENABLED=true docker compose --profile observability up --build`,
   then open `http://localhost:16686`. Details and residual operational risks:
   [docs/07](docs/07-observability.md).
-- **Image pinning**: the Compose images are pinned by tag
-  (`pgvector:0.8.1-pg16`, `ollama:0.13.1`). For real deployments, pin by
-  digest — `name:tag@sha256:...` — so a re-published tag cannot silently
-  change what you run (`docker buildx imagetools inspect <name:tag>` prints
-  the digest). Tags are kept here deliberately: a demo stack should bump
-  patch fixes on a deliberate `docker compose pull`, not drift daily.
+- **Immutable dependencies**: Actions are pinned to full commit SHAs, and
+  Dockerfile/Compose images use human-readable tags plus immutable digests.
+  Dependabot proposes deliberate updates; no mutable tag can silently change
+  CI or runtime bytes.
 
 ### Pinned stack (resolved by `uv.lock`)
 
-Python 3.13 · FastAPI 0.139 · LangGraph 1.2 · Pydantic AI 2.15 ·
+Python 3.12–3.14 (3.14 reference runtime) · FastAPI 0.139 · LangGraph 1.2 · Pydantic AI 2.15 ·
 SQLAlchemy 2.0 (async, asyncpg) · Alembic 1.18 · pgvector 0.5 · Pydantic 2.13 ·
 OpenTelemetry 1.43 · structlog 25 · tenacity 9 · pytest 9 ·
 testcontainers 4.14 · ruff 0.15 · mypy 1.20 · import-linter 2.13
@@ -314,9 +312,12 @@ gates allow at most a 5 percentage-point Recall@5 drop or 0.05 MRR drop.
 Live reports additionally measure abstention accuracy, citation validity,
 expected fact-phrase coverage, and latency p50/p95.
 
-CI (`.github/workflows/ci.yml`): lint + types + unit/architecture on every
-push; integration + e2e on pull requests. Pre-commit hooks mirror CI:
-`uv run pre-commit install`.
+CI runs Ruff, mypy strict, deterministic evals, dependency audit, wheel/sdist
+fresh-install checks, a Python 3.12–3.14 matrix, and integration/E2E on every
+PR and push to `main`. A separate security workflow runs Gitleaks, CodeQL,
+and a Trivy container scan. Releases tagged `v*` publish a provenance- and
+SBOM-enabled multi-architecture GHCR image. Pre-commit uses the same locked
+toolchain: `uv run --locked pre-commit install`.
 
 **Commit style**: [Conventional Commits](https://www.conventionalcommits.org/)
 (`feat:`, `fix:`, `docs:`, `test:`, `refactor:`, `chore:`), optionally scoped —
