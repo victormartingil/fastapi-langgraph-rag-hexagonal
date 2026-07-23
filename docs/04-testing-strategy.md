@@ -7,7 +7,7 @@
 
 ```
                  ┌──────────┐
-                 │   e2e    │  29 tests — full HTTP flow, real DB, faked AI,
+                 │   e2e    │  31 tests — full HTTP flow, real DB, faked AI,
                  │          │  DB-down/probe-split/unhandled-exception paths
              ┌───┴──────────┴───┐
              │   integration    │  18 tests — repository + hybrid SQL vs real pgvector,
@@ -15,21 +15,54 @@
          ┌───┴──────────────────┴───┐
          │   architecture           │  3 tests — import contracts + naming rules
      ┌───┴──────────────────────────┴───┐
-     │   unit                           │  110 tests — domain, use cases, graph nodes,
+     │   unit                           │  129 tests — domain, use cases, graph nodes,
      │                                  │  mappers, AI + extraction adapters, outage
      │                                  │  translation, container wiring
      └──────────────────────────────────┘
 ```
 
-| Suite             | Command                                   | Needs Docker? | Speed    |
-| ----------------- | ----------------------------------------- | ------------- | -------- |
-| unit              | `uv run pytest tests/unit`                | No            | seconds  |
-| architecture      | `uv run pytest tests/architecture`        | No            | ~4 s     |
-| integration       | `uv run pytest tests/integration`         | Yes           | seconds  |
-| e2e               | `uv run pytest tests/e2e`                 | Yes           | seconds  |
+| Suite | Command | Count | Needs Docker? |
+| --- | --- | ---: | --- |
+| unit              | `uv run --locked pytest tests/unit`         | 129 | No |
+| architecture      | `uv run --locked pytest tests/architecture` | 3 | No |
+| integration       | `uv run --locked pytest tests/integration`  | 18 | Yes |
+| e2e               | `uv run --locked pytest tests/e2e`          | 31 | Yes |
+| eval              | `uv run --locked pytest tests/evals`        | 6 | No |
 
 Markers are registered in `pyproject.toml`, so you can also select by mark:
-`uv run pytest -m "not integration and not e2e"`.
+`uv run --locked pytest -m "not integration and not e2e"`.
+
+## Tests and evaluations answer different questions
+
+The deterministic suites prove software contracts: invariants, mappings,
+transactions, SQL, HTTP behavior, architecture rules, and metric
+calculations. A passing application suite must not depend on a live model.
+
+The versioned `evals/` corpus measures RAG behavior:
+
+| Dimension | Metric or evidence |
+| --- | --- |
+| retrieval coverage | Recall@5 |
+| ranking quality | MRR |
+| refusal behavior | abstention accuracy |
+| provenance shape | citation validity |
+| answer coverage | expected fact-phrase coverage |
+| operational cost | latency p50/p95 |
+
+The committed lexical baseline is reproducible. Dense, hybrid, and full
+generation modes are optional live evaluations because their result depends
+on the selected model and machine. Regression thresholds—5 percentage points
+for Recall@5 and 0.05 for MRR—catch movement; they do not certify a deployment.
+Each real corpus needs representative and adversarial cases of its own.
+
+This separation prevents flaky model behavior from weakening CI while also
+preventing high code coverage from being mistaken for RAG quality.
+It follows the distinction in Google's
+[Rules of ML](https://developers.google.com/machine-learning/guides/rules-of-ml)
+between reliable infrastructure and measured model behavior. The corpus also
+contains indirect-injection and competing-source cases; deployment-specific
+red teaming should extend it following
+[adversarial testing guidance](https://developers.google.com/machine-learning/guides/adv-testing).
 
 ## Unit tests — fakes, not mocks
 
@@ -90,8 +123,8 @@ retry-then-success on transient failures, the transient taxonomy itself
 one HTTP call, then failure), and the error doctrine on exhausted retries:
 embedding adapters raise `EmbeddingProviderUnavailableError`, the LLM
 adapter raises `GenerationUnavailableError` (connection-down included),
-permanent LLM errors propagate loud — plus citation resolution including
-the dropping of hallucinated citations.
+permanent LLM errors propagate loud — plus citation resolution and rejection
+of missing or out-of-range citations.
 
 Not covered, honestly documented: pydantic-ai's *internal* agent loop (tool
 execution and validation retries). That machinery belongs to the vendor SDK;
@@ -103,7 +136,7 @@ Two layers of protection:
 
 1. **import-linter contracts** (`pyproject.toml`, run by
    `tests/architecture/test_import_contracts.py`): layered contracts per
-   context (infra → application → domain), forbidden cross-context imports,
+   context (adapters → application → domain), forbidden cross-context imports,
    and a "domain stays pure" contract banning framework imports in
    `*/domain/`.
 2. **Naming/structure conventions** (`test_naming_conventions.py`): adapter
@@ -116,7 +149,7 @@ PRs from now — including PRs written by AI agents (see `.ai-guidelines.md`).
 ## Integration tests — real PostgreSQL, thrown away every run
 
 `tests/integration` uses [testcontainers] to start
-`pgvector/pgvector:0.8.1-pg16` (the same pinned tag as docker-compose.yml),
+the same digest-pinned `pgvector/pgvector:0.8.1-pg16` image as Compose,
 then **runs the Alembic migrations** before yielding a session. That means
 the migration itself is under test: if the schema cannot be built from
 scratch, everything fails loudly at fixture setup.
@@ -162,9 +195,8 @@ everything.
 
 `tests/e2e` boots the real FastAPI app (routers, middleware, error handlers),
 the real Alembic-built database, the real repository, the real hybrid SQL and
-the real compiled LangGraph graph. Exactly two things are faked, via
-**FastAPI dependency overrides** — the same seam production uses to swap
-vendors:
+the real compiled LangGraph graph. Only AI behavior is controlled, by
+installing two fakes at the same composition seams used to swap vendors:
 
 - `EmbeddingProvider` → deterministic vectors (offline, reproducible);
 - `AnswerGenerator` → a scripted generator echoing its evidence as sources.

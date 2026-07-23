@@ -17,6 +17,10 @@ refusals) while the heavy production features stay on the
 **Runs with zero API keys**: Ollama serves both the embedding model and the
 chat model locally. OpenAI is a `.env` switch away.
 
+**Already coming from Java?** Start with
+[`python-for-java-devs`](https://github.com/victormartingil/python-for-java-devs);
+this repository is its advanced continuation, not a duplicate cheatsheet.
+
 ---
 
 ## What it does
@@ -61,8 +65,24 @@ curl -X POST http://localhost:8000/api/v1/chat \
      -d '{"question": "Can I return a product after two months?"}'
 ```
 
-You get an answer grounded in the policy ("no refund after 30 days; store
-credit may be offered up to day 90") **with the exact source chunk cited**.
+You get an answer grounded in the policy **with the exact source chunk
+cited**:
+
+```json
+{
+  "answer": "After two months, a refund is no longer available; store credit may be offered up to day 90.",
+  "sources": [
+    {
+      "document_id": "…",
+      "document_title": "Return Policy",
+      "chunk_id": "…",
+      "excerpt": "Refunds are available within 30 days…",
+      "score": 0.0325
+    }
+  ]
+}
+```
+
 Ask something unrelated (`"How do I bake sourdough bread?"`) and you get the
 honest refusal instead. Interactive docs at `http://localhost:8000/docs`; a
 [Bruno](https://www.usebruno.com/) collection lives in `api-collections/`.
@@ -90,10 +110,11 @@ flowchart TB
 
     subgraph CHAT["assistant context"]
         AQS["AskQuestion (use case)"]
-        G["LangGraph: retrieve → grade → generate | refuse"]
+        RW["RagWorkflow port"]
         CP["ports: KnowledgeSearch, AnswerGenerator"]
         CD["domain: Answer, Source, RetrievedChunk"]
-        AQS --> G --> CP --> CD
+        AQS --> RW --> CD
+        CP --> CD
     end
 
     subgraph ADAPTERS["outbound adapters"]
@@ -102,6 +123,7 @@ flowchart TB
         EXT["PdfTextExtractor / PlainTextExtractor"]
         RET["PgVectorHybridRetriever<br/>(dense + tsvector + RRF, one SQL)"]
         LLM["PydanticAiAnswerGenerator<br/>(structured output)"]
+        G["LangGraphRagWorkflow<br/>retrieve → grade → generate | refuse"]
     end
 
     DR --> DUC
@@ -113,6 +135,8 @@ flowchart TB
     BRIDGE["InProcessKnowledgeSearchAdapter"] -.implements.-> CP
     BRIDGE --> DUC
     LLM -.implements.-> CP
+    G -.implements.-> RW
+    G --> CP
 
     DB[("PostgreSQL + pgvector")]
     REPO --> DB
@@ -131,10 +155,15 @@ flowchart LR
     REF --> A
 ```
 
-The details, with file pointers: [docs/01](docs/01-hexagonal-architecture-in-python.md) ·
-[docs/02](docs/02-rag-explained.md) · [docs/03](docs/03-langgraph-orchestration.md) ·
+Start with the [architecture overview](docs/00-architecture-overview.md), then
+[bounded-context ownership](docs/08-bounded-context-ownership.md) and
+[Pythonic ports and adapters](docs/09-pythonic-ports-and-adapters.md).
+Deep dives: [RAG](docs/02-rag-explained.md) ·
+[LangGraph](docs/03-langgraph-orchestration.md) ·
+[testing/evals](docs/04-testing-strategy.md) ·
 [threat model](docs/06-threat-model.md) ·
-[observability](docs/07-observability.md) · [ADRs](docs/adr/).
+[observability](docs/07-observability.md) ·
+[evolution](docs/10-evolution.md) · [ADRs](docs/adr/).
 
 ## Project layout
 
@@ -151,13 +180,14 @@ src/knowledge_assistant/
 │   ├── domain/              #   Answer, Source, RetrievedChunk
 │   ├── application/         #   ports, AskQuestion, pure policies
 │   └── adapters/            #   HTTP; knowledge/LLM; LangGraph orchestration
-├── shared_kernel/           # only truly shared values and domain errors
+├── shared_kernel/           # only the DomainError root shared by both contexts
 └── platform/                # database lifecycle/migrations, HTTP, observability
 tests/
 ├── unit/                    # domain + use cases + graph nodes, hand-written fakes
 ├── architecture/            # import-linter contracts + naming rules
 ├── integration/             # testcontainers: real Postgres+pgvector
-└── e2e/                     # full HTTP flow; AI faked via dependency overrides
+├── e2e/                     # full HTTP flow; AI faked via dependency overrides
+└── evals/                   # deterministic dataset/metric/regression contracts
 ```
 
 ## Development
@@ -216,8 +246,9 @@ language per database via `KA_FTS_LANGUAGE` (default `english`) — any
 PostgreSQL text-search configuration works, e.g. `spanish`, `german`, or
 `simple` for mixed-language corpora. The choice is **schema-bound** (like the
 embedding dimension): set it before the first migration, or rebuild the
-schema on a fresh database — `KA_FTS_LANGUAGE=spanish uv run alembic upgrade
-head`. Alembic reads the same `.env` as the app, and the app **verifies at
+schema on a fresh database —
+`KA_FTS_LANGUAGE=spanish uv run --locked alembic upgrade head`. Alembic reads
+the same `.env` as the app, and the app **verifies at
 startup** that the database was built for the configured language (recorded
 in `schema_meta` by migration 0004) — a mismatch fails fast, naming both
 languages and the fix ([ADR-0004](docs/adr/0004-schema-bound-config-parity-guard.md)).
@@ -285,15 +316,16 @@ testcontainers 4.14 · ruff 0.15 · mypy 1.20 · import-linter 2.13
 
 ## Testing
 
-Four suites, one pyramid — full rationale in
+Five deterministic suites with different responsibilities — full rationale in
 [docs/04-testing-strategy.md](docs/04-testing-strategy.md):
 
-| Suite             | Count | Needs Docker | Proves                                              |
-| ----------------- | ----- | ------------ | --------------------------------------------------- |
-| unit              | 110   | No           | domain rules, chunking (incl. hard-split overlap + sliver merge), use cases (dedup, race recovery → 409, dimension assertion, batching, pagination, zero-DB-scope embedding per ADR-0005), every graph node, refusal path, mappers, AI adapters (respx-mocked HTTP, transient-only retries, tenacity as single retry authority), retriever + repository outage translation (OperationalError/InterfaceError/raw asyncpg OSError → 503 signal, ProgrammingError → untouched), embedding-adapter outage contract (exhausted retries → 503 signal), Unicode FTS tokenizer (incl. mega-token cap), FTS parity comparison + missing-table pgcode classification, config validators (fts_language), transient taxonomy (429/RemoteProtocolError/WriteError/CloseError/ProxyError), LLM error doctrine (transient → 503 signal, permanent → loud), error-envelope mapping (unmapped domain error → 500), client lifecycle + partial-close resilience, extraction adapters, container guards + wiring |
-| architecture      | 3     | No           | layering contracts, context independence, naming rules |
-| integration       | 18    | Yes          | ORM ↔ real migrated schema, content-hash unique index + race recovery, summary projections without chunk hydration (list + single-get), hybrid SQL ranking vs real pgvector, HNSW index query plan, FTS-language parity guard (schema_meta recorded by migration 0004, tamper → fail fast), Spanish FTS (own container migrated with `KA_FTS_LANGUAGE=spanish`: stemming, stop words, dense-leg fallback) |
-| e2e               | 29    | Yes          | full HTTP journey, error mapping (404/409/413/415/422/503), correlation IDs, cited answers, idempotent re-upload, pagination, API-key auth on/off, docs closed under auth, real container wiring (default top_k), provider-down → honest 503 on chat AND ingest AND generation, database-down → honest 503 envelope (KnowledgeBaseUnavailableError), unhandled exception → unified 500 envelope + correlation header, probe split (/livez up under DB outage, /health(z) 503), unified error envelope (401/404/422-validation), WWW-Authenticate on 401 |
+| Suite | Count | Docker | Primary evidence |
+| --- | ---: | --- | --- |
+| unit | 129 | No | domain/application behavior, policies, adapters at mocked vendor boundaries |
+| architecture | 3 | No | import contracts, context ownership, port/adapter conventions |
+| integration | 18 | Yes | migrations, ORM, PostgreSQL/pgvector SQL, index plan, multilingual FTS |
+| E2E | 31 | Yes | complete HTTP journeys, wiring, grounding, failures, probes, auth |
+| eval | 6 | No | dataset validity, metric calculations, regression thresholds |
 
 The 80% coverage gate applies to domain+application under the unit suite —
 currently **100%**. The AI adapters (embeddings, LLM) are unit-tested with
@@ -330,16 +362,16 @@ e.g. `feat(chat): add grading node`.
 2. `docs/02-rag-explained.md` (the concepts).
 3. Read `knowledge_base/application/ingest.py` (a use case end-to-end), then
    `tests/unit/test_document_services.py` (how it's tested without Docker).
-4. Exercise: add a new file type extractor (`.html`) — port, adapter, wiring
-   in `bootstrap.py`, unit test.
+4. Try the extractor challenge in the
+   [advanced exercises](docs/11-advanced-exercises.md#1-add-a-docx-extractor).
 
 **Mid** — "own a feature":
-1. `docs/01-hexagonal-architecture-in-python.md` and the ADRs.
+1. [Architecture overview](docs/00-architecture-overview.md) and the ADRs.
 2. `assistant/application/policies.py` and the LangGraph orchestration adapter.
 3. `docs/04-testing-strategy.md`; break an import-linter rule on purpose and
    watch CI catch it.
-4. Exercise: implement the LLM-based grader from
-   [docs/03](docs/03-langgraph-orchestration.md#extending-the-graph-guided-exercise).
+4. Choose an [advanced exercise](docs/11-advanced-exercises.md) and defend its
+   trade-offs before implementing it.
 
 **Senior** — "judge the trade-offs":
 1. ADRs [0001](docs/adr/0001-pgvector-as-vector-store.md) /
@@ -347,8 +379,29 @@ e.g. `feat(chat): add grading node`.
    [0003](docs/adr/0003-hybrid-retrieval.md) — argue with them.
 2. The RRF SQL in `knowledge_base/adapters/outbound/retrieval/pgvector_hybrid.py` and its
    integration tests.
-3. `docs/05-java-to-python-cheatsheet.md` if you mentor Java developers.
-4. Exercise: pick a roadmap item below and design it on paper first.
+3. [Bounded-context ownership](docs/08-bounded-context-ownership.md) and
+   [evolution without a rewrite](docs/10-evolution.md).
+4. Review the threat model and evaluation corpus as if approving a production
+   deployment.
+
+## Deliberate limits
+
+This is a reference architecture, not a turnkey multi-tenant product:
+
+- one shared API key is a deployment guard, not user/tenant authorization;
+- ingestion is synchronous and has no durable job queue;
+- there is no malware scanner, tenant isolation, deletion workflow, or
+  deployment-specific retention policy;
+- deterministic grading favors precision and can refuse valid paraphrases;
+- prompt injection risk is reduced, never claimed solved;
+- the bundled evaluation corpus proves the harness, not quality on a private
+  corpus;
+- LangGraph has no checkpointer because there is no memory, approval, or
+  recoverable long-running workflow requirement yet.
+
+The [threat model](docs/06-threat-model.md) states required production
+extensions; the [evolution guide](docs/10-evolution.md) shows where they fit
+without weakening current boundaries.
 
 ## Roadmap (explicitly Phase 2 — NOT implemented here)
 
@@ -360,6 +413,12 @@ e.g. `feat(chat): add grading node`.
 3. **Platform features**: JWT/OIDC auth (an optional shared API key already
    exists), rate limiting, Kafka events, SSE streaming, MCP server exposing
    the retriever as a tool.
+
+## Author
+
+Created by [Victor Martin](https://github.com/victormartingil) as an advanced
+AI/backend engineering reference and companion to
+[`python-for-java-devs`](https://github.com/victormartingil/python-for-java-devs).
 
 ## License
 

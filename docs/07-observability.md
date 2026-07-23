@@ -22,9 +22,10 @@ logs and attached to the active request span as `correlation.id`, so an
 operator can move from an error response to logs and traces without searching
 for user content.
 
-The GenAI attributes follow the evolving OpenTelemetry semantic conventions
-where they are stable enough to be useful. Application-specific RAG attributes
-use the `rag.*` namespace.
+The GenAI attributes follow the evolving
+[OpenTelemetry GenAI semantic conventions](https://opentelemetry.io/docs/specs/semconv/gen-ai/)
+where they are stable enough to be useful. Application-specific RAG
+attributes use the `rag.*` namespace.
 
 ## Local trace UI
 
