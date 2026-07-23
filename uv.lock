@@ -713,7 +713,7 @@ dev = [
     { name = "pytest-cov", specifier = ">=6,<8" },
     { name = "respx", specifier = ">=0.22,<1" },
     { name = "ruff", specifier = ">=0.13,<1" },
-    { name = "testcontainers", extras = ["postgres"], specifier = ">=4.14,<5" },
+    { name = "testcontainers", extras = ["postgres"], specifier = ">=4.14.2,<5" },
 ]
 
 [[package]]
