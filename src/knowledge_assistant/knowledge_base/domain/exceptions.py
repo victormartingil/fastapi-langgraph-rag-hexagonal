@@ -7,6 +7,14 @@ class EmbeddingProviderUnavailableError(DomainError):
     """The embedding provider exhausted retries for a transient outage."""
 
 
+class InvalidDocumentMetadataError(DomainError):
+    """A title or filename violates the public domain limits."""
+
+    def __init__(self, field: str, reason: str) -> None:
+        super().__init__(f"Invalid {field}: {reason}")
+        self.field = field
+
+
 class UnsupportedFileTypeError(DomainError):
     """Raised when an uploaded file has an extension we cannot extract text from."""
 

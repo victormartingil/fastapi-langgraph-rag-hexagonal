@@ -7,6 +7,14 @@ class EmptyQuestionError(DomainError):
     """Raised when the user submits an empty or whitespace-only question."""
 
 
+class InvalidQuestionError(DomainError):
+    """Raised when a question or retrieval limit violates domain bounds."""
+
+
+class InvalidModelOutputError(DomainError):
+    """The LLM exhausted structured-output retries without valid grounding."""
+
+
 class RetrievalUnavailableError(DomainError):
     """The knowledge base cannot be searched right now (transient outage).
 

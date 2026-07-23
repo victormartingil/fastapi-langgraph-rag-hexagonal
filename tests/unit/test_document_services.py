@@ -18,6 +18,7 @@ from knowledge_assistant.knowledge_base.domain.exceptions import (
     DocumentNotFoundError,
     EmbeddingDimensionMismatchError,
     EmptyDocumentError,
+    InvalidDocumentMetadataError,
     UnsupportedFileTypeError,
 )
 from knowledge_assistant.knowledge_base.domain.models import Document
@@ -76,6 +77,22 @@ class TestIngestDocument:
         use_case, _ = make_ingest()
         result = await use_case.execute("policy.md", b"x", title="Return Policy")
         assert result.document.title == "Return Policy"
+
+    @pytest.mark.parametrize(
+        ("file_name", "title"),
+        [
+            ("x" * 256, None),
+            ("policy.md", "x" * 201),
+            ("policy.md", "   "),
+        ],
+    )
+    async def test_invalid_metadata_is_rejected_before_extraction(
+        self, file_name: str, title: str | None
+    ) -> None:
+        use_case, _ = make_ingest()
+
+        with pytest.raises(InvalidDocumentMetadataError):
+            await use_case.execute(file_name, b"x", title=title)
 
     async def test_reingesting_identical_content_returns_the_original(self) -> None:
         """Idempotent ingestion: same content twice -> no duplicate document."""

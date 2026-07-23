@@ -9,6 +9,7 @@ entry), never a client fault — so the default is 500, not 400.
 from knowledge_assistant.assistant.domain.exceptions import (
     EmptyQuestionError,
     GenerationUnavailableError,
+    InvalidModelOutputError,
     RetrievalUnavailableError,
 )
 from knowledge_assistant.knowledge_base.domain.exceptions import (
@@ -31,6 +32,7 @@ class TestStatusMapping:
         assert _status_for(EmptyQuestionError("x")) == 422
         assert _status_for(RetrievalUnavailableError("x")) == 503
         assert _status_for(GenerationUnavailableError("x")) == 503
+        assert _status_for(InvalidModelOutputError("x")) == 502
         assert _status_for(EmbeddingProviderUnavailableError("x")) == 503
 
     def test_unmapped_domain_error_defaults_to_500(self) -> None:

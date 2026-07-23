@@ -133,7 +133,7 @@ flowchart LR
 
 The details, with file pointers: [docs/01](docs/01-hexagonal-architecture-in-python.md) ·
 [docs/02](docs/02-rag-explained.md) · [docs/03](docs/03-langgraph-orchestration.md) ·
-[ADRs](docs/adr/).
+[threat model](docs/06-threat-model.md) · [ADRs](docs/adr/).
 
 ## Project layout
 
@@ -255,6 +255,12 @@ multi-tenant security — JWT/OIDC and rate limiting are Phase 2
   all surface as a 503 with the unified envelope
   `{detail, error, correlation_id}` — and an unexpected bug as the same
   envelope with 500, correlation ID included.
+- **Grounding contract**: an affirmative answer requires at least one valid
+  source index. Invalid model output is retried, then fails with a typed 502;
+  it is never returned as a successful uncited answer. Questions and document
+  content are serialized and labeled as untrusted data. This reduces prompt
+  injection risk but does not eliminate it; see the
+  [threat model](docs/06-threat-model.md).
 - **Image pinning**: the Compose images are pinned by tag
   (`pgvector:0.8.1-pg16`, `ollama:0.13.1`). For real deployments, pin by
   digest — `name:tag@sha256:...` — so a re-published tag cannot silently

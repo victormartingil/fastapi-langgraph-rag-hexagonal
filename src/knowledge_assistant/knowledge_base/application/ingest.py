@@ -28,7 +28,11 @@ from knowledge_assistant.knowledge_base.domain.exceptions import (
     EmptyDocumentError,
     UnsupportedFileTypeError,
 )
-from knowledge_assistant.knowledge_base.domain.models import Chunk, Document
+from knowledge_assistant.knowledge_base.domain.models import (
+    Chunk,
+    Document,
+    validate_document_metadata,
+)
 from knowledge_assistant.knowledge_base.domain.value_objects import DocumentId
 from knowledge_assistant.shared_kernel.value_objects import EmbeddingVector
 
@@ -84,6 +88,7 @@ class IngestDocument:
         self._embedding_model_name = embedding_model_name
 
     async def execute(self, file_name: str, data: bytes, title: str | None = None) -> IngestResult:
+        validate_document_metadata(title or file_name, file_name)
         extractor = self._pick_extractor(file_name)
         # Extraction can block for hundreds of milliseconds (pypdf parses the
         # whole file synchronously). A blocking call on the event loop stalls

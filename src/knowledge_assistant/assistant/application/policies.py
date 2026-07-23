@@ -26,4 +26,4 @@ def decide_answer_route(
 
 def refusal_answer() -> Answer:
     """Build the deterministic answer for missing evidence."""
-    return Answer(text=REFUSAL_MESSAGE, sources=())
+    return Answer(text=REFUSAL_MESSAGE, sources=(), is_refusal=True)
