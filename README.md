@@ -321,7 +321,7 @@ Five deterministic suites with different responsibilities — full rationale in
 
 | Suite | Count | Docker | Primary evidence |
 | --- | ---: | --- | --- |
-| unit | 129 | No | domain/application behavior, policies, adapters at mocked vendor boundaries |
+| unit | 132 | No | domain/application behavior, policies, adapters at mocked vendor boundaries |
 | architecture | 3 | No | import contracts, context ownership, port/adapter conventions |
 | integration | 18 | Yes | migrations, ORM, PostgreSQL/pgvector SQL, index plan, multilingual FTS |
 | E2E | 31 | Yes | complete HTTP journeys, wiring, grounding, failures, probes, auth |

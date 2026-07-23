@@ -15,7 +15,7 @@
          ┌───┴──────────────────┴───┐
          │   architecture           │  3 tests — import contracts + naming rules
      ┌───┴──────────────────────────┴───┐
-     │   unit                           │  129 tests — domain, use cases, graph nodes,
+     │   unit                           │  132 tests — domain, use cases, graph nodes,
      │                                  │  mappers, AI + extraction adapters, outage
      │                                  │  translation, container wiring
      └──────────────────────────────────┘
@@ -23,7 +23,7 @@
 
 | Suite | Command | Count | Needs Docker? |
 | --- | --- | ---: | --- |
-| unit              | `uv run --locked pytest tests/unit`         | 129 | No |
+| unit              | `uv run --locked pytest tests/unit`         | 132 | No |
 | architecture      | `uv run --locked pytest tests/architecture` | 3 | No |
 | integration       | `uv run --locked pytest tests/integration`  | 18 | Yes |
 | e2e               | `uv run --locked pytest tests/e2e`          | 31 | Yes |
