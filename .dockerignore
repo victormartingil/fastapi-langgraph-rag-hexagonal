@@ -1,0 +1,20 @@
+# Keep the build context small: everything the image does not need.
+.git/
+.github/
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.coverage
+htmlcov/
+.env
+.idea/
+.vscode/
+.DS_Store
+tests/
+docs/
+api-collections/
+samples/

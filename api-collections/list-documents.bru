@@ -1,0 +1,22 @@
+meta {
+  name: List documents
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{baseUrl}}/api/v1/documents?limit=20&offset=0
+  body: none
+  auth: none
+}
+
+params:query {
+  limit: 20
+  offset: 0
+}
+
+docs {
+  Paginated: `limit` (1-100, default 20) and `offset` (default 0).
+  The response echoes `total`, `limit` and `offset` next to `documents`.
+  If the server sets KA_API_KEY, add the header `X-API-Key: <key>`.
+}

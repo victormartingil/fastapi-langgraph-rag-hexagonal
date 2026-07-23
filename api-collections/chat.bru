@@ -1,0 +1,24 @@
+meta {
+  name: Ask a question (RAG chat)
+  type: http
+  seq: 5
+}
+
+post {
+  url: {{baseUrl}}/api/v1/chat
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "question": "Can I return a product after two months?",
+    "top_k": 5
+  }
+}
+
+docs {
+  If the server sets KA_API_KEY, add the header `X-API-Key: <key>`
+  (auth is off by default for local development).
+  Omit `top_k` to use the server default (KA_RETRIEVAL_TOP_K).
+}

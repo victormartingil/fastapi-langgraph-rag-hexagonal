@@ -1,0 +1,88 @@
+# Full local stack: API + PostgreSQL/pgvector + Ollama.
+# `docker compose up` gives you a working RAG system with NO API keys.
+#
+# Startup order (via depends_on):
+#   db + ollama start → ollama-init pulls the models (one-shot) → api starts
+#   → api runs Alembic migrations → ready.
+
+services:
+  db:
+    image: pgvector/pgvector:0.8.1-pg16  # pinned (verified on Docker Hub); bump deliberately, ~quarterly
+    restart: unless-stopped  # a crashed db self-heals; data is on the volume
+    # Local-dev-only credentials — never reuse these outside your machine.
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: knowledge
+    ports:
+      - "5432:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d knowledge"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  ollama:
+    image: ollama/ollama:0.13.1  # pinned (verified on Docker Hub); bump deliberately, ~quarterly
+    restart: unless-stopped  # a crashed model server self-heals
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    healthcheck:
+      test: ["CMD-SHELL", "ollama list >/dev/null 2>&1 || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  # One-shot bootstrap: pull the embedding and chat models, then exit.
+  # The api service waits for this to complete successfully.
+  ollama-init:
+    image: ollama/ollama:0.13.1  # pinned (verified on Docker Hub); bump deliberately, ~quarterly
+    depends_on:
+      ollama:
+        condition: service_healthy
+    environment:
+      OLLAMA_HOST: http://ollama:11434
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - "ollama pull nomic-embed-text && ollama pull llama3.1"
+    restart: "no"
+
+  api:
+    build: .
+    restart: unless-stopped  # pair with the `exec` in the Dockerfile CMD
+    depends_on:
+      db:
+        condition: service_healthy
+      ollama-init:
+        condition: service_completed_successfully
+    environment:
+      KA_DATABASE_URL: postgresql+asyncpg://postgres:postgres@db:5432/knowledge
+      KA_EMBEDDING_PROVIDER: ollama
+      KA_EMBEDDING_BASE_URL: http://ollama:11434
+      KA_LLM_PROVIDER: ollama
+      KA_LLM_BASE_URL: http://ollama:11434/v1
+      KA_LLM_API_KEY: ollama
+    ports:
+      - "8000:8000"
+    healthcheck:
+      # LIVENESS (/livez), not readiness: with `restart: unless-stopped`,
+      # probing /health here would turn a transient DB hiccup into a
+      # pointless api restart loop. The slim runtime image ships no
+      # curl/wget; Python stdlib it is.
+      test:
+        [
+          "CMD-SHELL",
+          "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/livez', timeout=3)\"",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+volumes:
+  db_data:
+  ollama_data:

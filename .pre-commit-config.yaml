@@ -1,0 +1,34 @@
+# Pre-commit hooks: the same checks CI runs, before they reach CI.
+# Setup once:  uv run pre-commit install
+
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.15.22
+    hooks:
+      - id: ruff
+        args: [--fix]
+      - id: ruff-format
+
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.20.2
+    hooks:
+      - id: mypy
+        args: [--strict, src, tests]
+        additional_dependencies:
+          # mypy needs the project's types to check against.
+          - fastapi
+          - pydantic
+          - pydantic-settings
+          - sqlalchemy
+          - pgvector
+          - httpx
+          - structlog
+          - tenacity
+          - langgraph
+          - pydantic-ai
+          - alembic
+          # test imports (mypy checks tests/ too)
+          - pytest
+          - pytest-asyncio
+          - testcontainers
+          - respx

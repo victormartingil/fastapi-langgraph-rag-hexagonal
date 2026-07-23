@@ -1,0 +1,15 @@
+meta {
+  name: Get document by id
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{baseUrl}}/api/v1/documents/{{documentId}}
+  body: none
+  auth: none
+}
+
+vars:pre-request {
+  documentId: replace-with-a-real-id-from-list-documents
+}

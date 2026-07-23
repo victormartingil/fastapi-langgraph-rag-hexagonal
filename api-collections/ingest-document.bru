@@ -1,0 +1,16 @@
+meta {
+  name: Ingest sample document
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/api/v1/documents
+  body: multipart-form
+  auth: none
+}
+
+body:multipart-form {
+  file: @file(../samples/return-policy.md)
+  title: Return Policy
+}

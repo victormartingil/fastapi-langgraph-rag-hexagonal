@@ -1,0 +1,62 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Fast gate: lint, types, and the Docker-free test suites.
+  quality-and-unit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Set up Python
+        run: uv python install 3.13
+
+      - name: Install dependencies
+        run: uv sync --locked
+
+      - name: Ruff (lint)
+        run: uv run ruff check .
+
+      - name: Ruff (format)
+        run: uv run ruff format --check .
+
+      - name: mypy --strict (source AND tests: fakes implement the ports)
+        run: uv run mypy --strict src tests
+
+      - name: Unit + architecture tests (no Docker needed)
+        run: uv run pytest tests/unit tests/architecture --cov=src/knowledge_assistant --cov-report=term-missing
+
+  # Slow lane: real PostgreSQL+pgvector via testcontainers. Runs on PRs.
+  integration-and-e2e:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Set up Python
+        run: uv python install 3.13
+
+      - name: Install dependencies
+        run: uv sync --locked
+
+      # GitHub runners provide Docker by default; testcontainers does the rest.
+      - name: Integration + e2e tests (testcontainers)
+        run: uv run pytest tests/integration tests/e2e -v

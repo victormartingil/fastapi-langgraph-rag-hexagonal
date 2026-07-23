@@ -1,0 +1,31 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+
+# Virtual environments / uv
+.venv/
+venv/
+
+# Tooling caches
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.import_linter_cache/
+.coverage
+htmlcov/
+coverage.xml
+
+# Environment & secrets
+.env
+
+# Editors / OS
+.idea/
+.vscode/
+.DS_Store
+
+# Project-specific
+.project-brief.txt
