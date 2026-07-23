@@ -1,6 +1,6 @@
 [project]
 name = "fastapi-langgraph-rag-hexagonal"
-version = "0.1.0"
+version = "1.0.0"
 description = "A didactic, production-shaped RAG API: FastAPI + LangGraph + PostgreSQL/pgvector, built with hexagonal architecture (ports & adapters)."
 readme = "README.md"
 license = "MIT"
