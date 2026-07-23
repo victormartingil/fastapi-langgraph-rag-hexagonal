@@ -19,6 +19,11 @@ from knowledge_assistant.assistant.application.policies import (
     refusal_answer,
 )
 from knowledge_assistant.assistant.application.ports import AnswerGenerator, KnowledgeSearch
+from knowledge_assistant.platform.observability.telemetry import (
+    observe_operation,
+    record_abstention,
+    record_evidence,
+)
 
 Node = Callable[[RagState], Awaitable[dict[str, object]]]
 
@@ -27,7 +32,9 @@ def make_retrieve_node(knowledge_search: KnowledgeSearch) -> Node:
     """Node 1 — fetch candidate chunks from the knowledge base."""
 
     async def retrieve(state: RagState) -> dict[str, object]:
-        chunks = await knowledge_search.search(state["question"], limit=state["top_k"])
+        with observe_operation("retrieval", {"rag.retrieval.top_k": state["top_k"]}):
+            chunks = await knowledge_search.search(state["question"], limit=state["top_k"])
+        record_evidence(len(chunks))
         return {"retrieved_chunks": chunks}
 
     return retrieve
@@ -42,8 +49,10 @@ def make_grade_node(min_relevance_score: float) -> Node:
     """
 
     async def grade(state: RagState) -> dict[str, object]:
-        retrieved = state.get("retrieved_chunks", [])
-        relevant = filter_relevant_evidence(retrieved, min_relevance_score)
+        with observe_operation("grading"):
+            retrieved = state.get("retrieved_chunks", [])
+            relevant = filter_relevant_evidence(retrieved, min_relevance_score)
+        record_evidence(len(relevant))
         return {"relevant_chunks": relevant}
 
     return grade
@@ -58,10 +67,15 @@ def make_generate_node(generator: AnswerGenerator) -> Node:
     """Node 3a — answer grounded in the surviving evidence."""
 
     async def generate(state: RagState) -> dict[str, object]:
-        answer = await generator.generate(
-            state["question"],
-            chunks=state.get("relevant_chunks", []),
-        )
+        chunks = state.get("relevant_chunks", [])
+        with observe_operation(
+            "generation",
+            {
+                "gen_ai.operation.name": "generate_content",
+                "rag.evidence.count": len(chunks),
+            },
+        ):
+            answer = await generator.generate(state["question"], chunks=chunks)
         return {"answer": answer}
 
     return generate
@@ -75,6 +89,7 @@ def make_refuse_node() -> Node:
     """
 
     async def refuse(state: RagState) -> dict[str, object]:
+        record_abstention()
         return {"answer": refusal_answer()}
 
     return refuse

@@ -133,7 +133,8 @@ flowchart LR
 
 The details, with file pointers: [docs/01](docs/01-hexagonal-architecture-in-python.md) ·
 [docs/02](docs/02-rag-explained.md) · [docs/03](docs/03-langgraph-orchestration.md) ·
-[threat model](docs/06-threat-model.md) · [ADRs](docs/adr/).
+[threat model](docs/06-threat-model.md) ·
+[observability](docs/07-observability.md) · [ADRs](docs/adr/).
 
 ## Project layout
 
@@ -148,8 +149,8 @@ src/knowledge_assistant/
 │   └── adapters/            #   inbound HTTP; outbound persistence/extraction/search
 ├── assistant/               # bounded context: grounded Q&A
 │   ├── domain/              #   Answer, Source, RetrievedChunk
-│   ├── application/         #   ports, AskQuestion, graph/ (LangGraph)
-│   └── adapters/            #   inbound HTTP; outbound knowledge bridge / LLM
+│   ├── application/         #   ports, AskQuestion, pure policies
+│   └── adapters/            #   HTTP; knowledge/LLM; LangGraph orchestration
 ├── shared_kernel/           # only truly shared values and domain errors
 └── platform/                # database lifecycle/migrations, HTTP, observability
 tests/
@@ -261,6 +262,15 @@ multi-tenant security — JWT/OIDC and rate limiting are Phase 2
   content are serialized and labeled as untrusted data. This reduces prompt
   injection risk but does not eliminate it; see the
   [threat model](docs/06-threat-model.md).
+- **Content-safe telemetry**: optional OpenTelemetry spans and metrics cover
+  extraction, embeddings, retrieval, grading, generation, retries,
+  abstentions, and evidence counts. Correlation IDs connect traces and
+  structured logs; prompts, questions, titles, filenames, document text, and
+  answers are never recorded by application instrumentation. Run the local
+  Collector + Jaeger profile with
+  `KA_OTEL_ENABLED=true docker compose --profile observability up --build`,
+  then open `http://localhost:16686`. Details and residual operational risks:
+  [docs/07](docs/07-observability.md).
 - **Image pinning**: the Compose images are pinned by tag
   (`pgvector:0.8.1-pg16`, `ollama:0.13.1`). For real deployments, pin by
   digest — `name:tag@sha256:...` — so a re-published tag cannot silently
@@ -272,8 +282,8 @@ multi-tenant security — JWT/OIDC and rate limiting are Phase 2
 
 Python 3.13 · FastAPI 0.139 · LangGraph 1.2 · Pydantic AI 2.15 ·
 SQLAlchemy 2.0 (async, asyncpg) · Alembic 1.18 · pgvector 0.5 · Pydantic 2.13 ·
-structlog 25 · tenacity 9 · pytest 9 · testcontainers 4.14 · ruff 0.15 ·
-mypy 1.20 · import-linter 2.13
+OpenTelemetry 1.43 · structlog 25 · tenacity 9 · pytest 9 ·
+testcontainers 4.14 · ruff 0.15 · mypy 1.20 · import-linter 2.13
 
 ## Testing
 
@@ -341,14 +351,12 @@ e.g. `feat(chat): add grading node`.
 
 ## Roadmap (explicitly Phase 2 — NOT implemented here)
 
-1. **LLM observability**: OpenTelemetry (GenAI semantic conventions) +
-   Langfuse in docker-compose.
-2. **Ad-hoc document mode** with a LangGraph router node: small attached
+1. **Ad-hoc document mode** with a LangGraph router node: small attached
    document → context stuffing (no vectorization); large → ephemeral in-memory
    chunk+embed. Decision criterion: context-window fit.
-3. **LangGraph Postgres checkpointer** for durable execution and multi-turn
+2. **LangGraph Postgres checkpointer** for durable execution and multi-turn
    conversation memory.
-4. **Platform features**: JWT/OIDC auth (an optional shared API key already
+3. **Platform features**: JWT/OIDC auth (an optional shared API key already
    exists), rate limiting, Kafka events, SSE streaming, MCP server exposing
    the retriever as a tool.
 

@@ -26,6 +26,10 @@ from knowledge_assistant.knowledge_base.domain.exceptions import (
 from knowledge_assistant.platform.http.resilience import (
     is_transient_http_error,
 )
+from knowledge_assistant.platform.observability.telemetry import (
+    observe_operation,
+    record_retry,
+)
 from knowledge_assistant.shared_kernel.value_objects import EmbeddingVector
 
 logger = structlog.get_logger()
@@ -52,6 +56,7 @@ class OpenAiEmbeddingProvider:
             retry=retry_if_exception(is_transient_http_error),
             stop=stop_after_attempt(max_retries),
             wait=wait_exponential(multiplier=0.5, max=8) + wait_random(0, 0.5),
+            before_sleep=lambda _: record_retry("embeddings"),
             reraise=True,
         )(self._embed_once)
 
@@ -59,18 +64,28 @@ class OpenAiEmbeddingProvider:
         if not texts:
             return []
         logger.debug("embedding_batch", provider="openai", model=self._model, size=len(texts))
-        try:
-            return await self._embed_with_retry(texts)
-        except httpx.HTTPError as exc:
-            # Port contract: a transient outage that survived retries becomes
-            # a domain signal (-> HTTP 503); permanent errors propagate raw.
-            if not is_transient_http_error(exc):
-                raise
-            msg = (
-                "The embedding service is temporarily unavailable "
-                "(provider 'openai' unreachable after retries). Please try again shortly."
-            )
-            raise EmbeddingProviderUnavailableError(msg) from exc
+        with observe_operation(
+            "embeddings",
+            {
+                "gen_ai.operation.name": "embeddings",
+                "gen_ai.provider.name": "openai",
+                "gen_ai.request.model": self._model,
+                "gen_ai.request.input.count": len(texts),
+            },
+        ):
+            try:
+                return await self._embed_with_retry(texts)
+            except httpx.HTTPError as exc:
+                # Port contract: a transient outage that survived retries becomes
+                # a domain signal (-> HTTP 503); permanent errors propagate raw.
+                if not is_transient_http_error(exc):
+                    raise
+                msg = (
+                    "The embedding service is temporarily unavailable "
+                    "(provider 'openai' unreachable after retries). "
+                    "Please try again shortly."
+                )
+                raise EmbeddingProviderUnavailableError(msg) from exc
 
     async def _embed_once(self, texts: list[str]) -> list[EmbeddingVector]:
         response = await self._client.post(

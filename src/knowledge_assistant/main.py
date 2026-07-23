@@ -12,6 +12,7 @@ from contextlib import asynccontextmanager
 from typing import Annotated
 
 import structlog
+from anyio import to_thread
 from fastapi import Depends, FastAPI, Response, status
 from sqlalchemy import text
 
@@ -28,6 +29,7 @@ from knowledge_assistant.platform.database.schema_meta import (
 from knowledge_assistant.platform.http.error_handlers import register_error_handlers
 from knowledge_assistant.platform.http.middleware import CorrelationIdMiddleware
 from knowledge_assistant.platform.observability.logging import configure_logging
+from knowledge_assistant.platform.observability.telemetry import configure_telemetry
 
 logger = structlog.get_logger()
 
@@ -41,24 +43,39 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     """
     settings = settings or get_settings()
     configure_logging(debug=settings.debug)
+    telemetry = configure_telemetry(
+        enabled=settings.otel_enabled,
+        service_name=settings.otel_service_name,
+        otlp_endpoint=settings.otel_exporter_otlp_endpoint,
+    )
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-        container = build_container(settings)
-        # Fail fast on schema/config drift (ADR-0004): the FTS language is
-        # baked into the migrated schema, so booting with a different one
-        # would silently degrade full-text search.
-        await assert_fts_language_parity(container.session_factory, expected=settings.fts_language)
-        app.state.container = container
-        logger.info(
-            "app_started",
-            app=settings.app_name,
-            embedding_provider=settings.embedding_provider,
-            llm_provider=settings.llm_provider,
-        )
-        yield
-        await container.aclose()
-        logger.info("app_stopped")
+        container: Container | None = None
+        try:
+            container = build_container(settings)
+            telemetry.instrument_engine(container.engine)
+            # Fail fast on schema/config drift (ADR-0004): the FTS language is
+            # baked into the migrated schema, so booting with a different one
+            # would silently degrade full-text search.
+            await assert_fts_language_parity(
+                container.session_factory, expected=settings.fts_language
+            )
+            app.state.container = container
+            logger.info(
+                "app_started",
+                app=settings.app_name,
+                embedding_provider=settings.embedding_provider,
+                llm_provider=settings.llm_provider,
+            )
+            yield
+        finally:
+            try:
+                if container is not None:
+                    await container.aclose()
+            finally:
+                await to_thread.run_sync(telemetry.shutdown)
+                logger.info("app_stopped")
 
     app = FastAPI(
         title=settings.app_name,
@@ -112,4 +129,5 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             return {"status": "unhealthy"}
         return {"status": "ok"}
 
+    telemetry.instrument_app(app)
     return app
