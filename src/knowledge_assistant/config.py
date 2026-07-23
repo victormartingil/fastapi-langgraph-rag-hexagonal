@@ -105,6 +105,13 @@ class Settings(BaseSettings):
     # working. /health is always open. See README "Security".
     api_key: str | None = None
 
+    # --- Observability ----------------------------------------------------
+    # OTLP is opt-in. Prompt, question, title, and document content are never
+    # attached to spans or metrics by this application.
+    otel_enabled: bool = False
+    otel_service_name: str = "knowledge-assistant"
+    otel_exporter_otlp_endpoint: str = "http://localhost:4318"
+
     @field_validator("fts_language", mode="before")
     @classmethod
     def _normalize_fts_language(cls, value: object) -> object:
@@ -142,6 +149,8 @@ class Settings(BaseSettings):
             raise ValueError(
                 "retrieval_fetch_limit must be greater than or equal to retrieval_top_k"
             )
+        if self.otel_enabled and not self.otel_exporter_otlp_endpoint.strip():
+            raise ValueError("otel_exporter_otlp_endpoint cannot be empty when OTel is enabled")
         return self
 
 

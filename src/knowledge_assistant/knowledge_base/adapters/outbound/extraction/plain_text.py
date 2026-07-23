@@ -5,6 +5,8 @@ structure (headings, lists) is useful signal for the LLM, so we keep it
 instead of stripping it.
 """
 
+from knowledge_assistant.platform.observability.telemetry import observe_operation
+
 SUPPORTED_SUFFIXES = (".md", ".markdown", ".txt")
 
 
@@ -15,4 +17,5 @@ class PlainTextExtractor:
         return file_name.lower().endswith(SUPPORTED_SUFFIXES)
 
     def extract(self, file_name: str, data: bytes) -> str:
-        return data.decode("utf-8", errors="replace")
+        with observe_operation("extraction", {"file.type": "text"}):
+            return data.decode("utf-8", errors="replace")

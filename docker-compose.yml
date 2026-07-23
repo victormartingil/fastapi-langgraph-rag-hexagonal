@@ -66,6 +66,8 @@ services:
       KA_LLM_PROVIDER: ollama
       KA_LLM_BASE_URL: http://ollama:11434/v1
       KA_LLM_API_KEY: ollama
+      KA_OTEL_ENABLED: ${KA_OTEL_ENABLED:-false}
+      KA_OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
     ports:
       - "8000:8000"
     healthcheck:
@@ -82,6 +84,26 @@ services:
       timeout: 5s
       retries: 5
       start_period: 10s
+
+  # Optional local observability stack:
+  # KA_OTEL_ENABLED=true docker compose --profile observability up --build
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.136.0
+    profiles: ["observability"]
+    command: ["--config=/etc/otelcol-contrib/config.yaml"]
+    volumes:
+      - ./observability/otel-collector.yaml:/etc/otelcol-contrib/config.yaml:ro
+    depends_on:
+      - jaeger
+    ports:
+      - "4318:4318"
+
+  jaeger:
+    image: jaegertracing/jaeger:2.11.0
+    profiles: ["observability"]
+    ports:
+      - "16686:16686"
+      - "4317:4317"
 
 volumes:
   db_data:

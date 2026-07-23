@@ -48,6 +48,10 @@ class TestRelatedSettingsValidation:
             ({"llm_max_retries": 0}, "greater than 0"),
             ({"llm_timeout_seconds": 0}, "greater than 0"),
             ({"api_key": "   "}, "api_key"),
+            (
+                {"otel_enabled": True, "otel_exporter_otlp_endpoint": "   "},
+                "otel_exporter_otlp_endpoint",
+            ),
         ],
     )
     def test_invalid_settings_are_rejected(

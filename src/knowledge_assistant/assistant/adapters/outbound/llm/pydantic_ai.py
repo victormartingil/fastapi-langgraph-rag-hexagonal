@@ -58,6 +58,7 @@ from knowledge_assistant.assistant.domain.models import Answer, RetrievedChunk, 
 from knowledge_assistant.platform.http.resilience import (
     is_transient_http_error,
 )
+from knowledge_assistant.platform.observability.telemetry import record_retry
 
 logger = structlog.get_logger()
 
@@ -170,6 +171,7 @@ class PydanticAiAnswerGenerator:
             # workers that failed together retries in lockstep and re-floods
             # the recovering service (thundering herd).
             wait=wait_exponential(multiplier=0.5, max=8) + wait_random(0, 0.5),
+            before_sleep=lambda _: record_retry("generation"),
             reraise=True,
         )(self._agent.run)
 
