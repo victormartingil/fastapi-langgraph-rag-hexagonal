@@ -1,7 +1,7 @@
 # 03 — LangGraph Orchestration
 
-> Why the read side is a graph, how it is wired, and why LangGraph lives in
-> the application layer.
+> Why the assistant uses a graph, how it is wired, and how LangGraph remains
+> a replaceable orchestration adapter.
 
 ## Why a graph at all?
 
@@ -25,7 +25,7 @@ the ones this project is designed to *teach and grow into*:
 
 ## The pieces
 
-### State — `graph/state.py`
+### State — `adapters/outbound/orchestration/langgraph/state.py`
 
 A `TypedDict` passed through the graph; nodes return **partial updates**:
 
@@ -45,9 +45,9 @@ It carries plain domain objects — no LangGraph types leak into the domain.
 Nodes are built by **factory functions that close over ports**:
 
 ```python
-def make_retrieve_node(retriever: ChunkRetriever) -> Node:
+def make_retrieve_node(search: KnowledgeSearch) -> Node:
     async def retrieve(state: RagState) -> dict[str, object]:
-        chunks = await retriever.retrieve(state["question"], limit=state["top_k"])
+        chunks = await search.search(state["question"], limit=state["top_k"])
         return {"retrieved_chunks": chunks}
     return retrieve
 ```
@@ -60,7 +60,7 @@ The four nodes:
 
 | Node      | Calls                          | Purpose                              |
 | --------- | ------------------------------ | ------------------------------------ |
-| `retrieve`  | `ChunkRetriever` port          | hybrid search in the knowledge base  |
+| `retrieve`  | `KnowledgeSearch` port          | hybrid search in the knowledge base  |
 | `grade`     | nothing (pure function)        | drop chunks below the relevance bar  |
 | `generate`  | `AnswerGenerator` port         | grounded, cited answer via the LLM   |
 | `refuse`    | nothing                        | fixed honest refusal, zero LLM cost  |
@@ -85,20 +85,18 @@ attaching a checkpointer later without touching this code (roadmap item 4).
 ### The use case — `application/ask.py`
 
 `AskQuestion` is the entry point the HTTP layer depends on. It validates the
-question, invokes the compiled graph, and unwraps the final `Answer`. It
-knows the *shape* of the pipeline; it does not know PostgreSQL or Ollama
-exist.
+question and calls the application-owned `RagWorkflow` port. It does not know
+LangGraph, PostgreSQL, or an LLM vendor exists.
 
-## Why the graph is in the application layer
+## Why LangGraph is an adapter
 
-"Retrieve, grade, then answer or refuse" is **application policy** — it would
-exist with any orchestrator, any database, any LLM. LangGraph is used here as
-a *library inside the application layer*, exactly like SQLAlchemy is used as
-a library inside infrastructure adapters. The domain never imports it
-(enforced by import-linter), and the only infrastructure that knows about the
-graph's existence is the composition root, which injects the ports.
+"Retrieve, grade, then answer or refuse" is application policy. The pure
+filtering, routing, and refusal rules therefore live in
+`assistant/application/policies.py`. LangGraph state, nodes, edges, and
+compilation are runtime mechanics under the outbound adapter. Import-linter
+forbids LangGraph from domain and application.
 
-See `docs/adr/0002-langgraph-in-application-layer.md` for the decision record.
+See `docs/adr/0002-langgraph-as-orchestration-adapter.md` for the decision record.
 
 ## Extending the graph (guided exercise)
 
@@ -106,7 +104,7 @@ Add an LLM-based grader between `retrieve` and `grade`:
 
 1. Define an `AnswerGrader` Protocol in `application/ports.py`
    (`async def grade(question, chunks) -> list[RetrievedChunk]`).
-2. Implement `PydanticAiAnswerGrader` in `infrastructure/llm/`.
+2. Implement `PydanticAiAnswerGrader` in `adapters/outbound/llm/`.
 3. Add a `make_llm_grade_node(grader)` factory and insert the node between
    `retrieve` and `grade` in `builder.py`.
 4. Write unit tests with a fake grader; run the architecture tests to prove

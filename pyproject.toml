@@ -246,3 +246,22 @@ forbidden_modules = [
     "knowledge_assistant.platform",
 ]
 ignore_imports = []
+
+[[tool.importlinter.contracts]]
+name = "Application layers are independent of web, persistence, AI, and telemetry frameworks"
+type = "forbidden"
+source_modules = [
+    "knowledge_assistant.knowledge_base.application",
+    "knowledge_assistant.assistant.application",
+]
+forbidden_modules = [
+    "fastapi",
+    "pydantic",
+    "pydantic_settings",
+    "sqlalchemy",
+    "langgraph",
+    "pydantic_ai",
+    "httpx",
+    "opentelemetry",
+]
+ignore_imports = []

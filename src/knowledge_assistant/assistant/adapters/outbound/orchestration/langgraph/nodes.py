@@ -12,16 +12,15 @@ zero infrastructure.
 
 from collections.abc import Awaitable, Callable
 
-from knowledge_assistant.assistant.application.graph.state import RagState
+from knowledge_assistant.assistant.adapters.outbound.orchestration.langgraph.state import RagState
+from knowledge_assistant.assistant.application.policies import (
+    decide_answer_route,
+    filter_relevant_evidence,
+    refusal_answer,
+)
 from knowledge_assistant.assistant.application.ports import AnswerGenerator, KnowledgeSearch
-from knowledge_assistant.assistant.domain.models import Answer
 
 Node = Callable[[RagState], Awaitable[dict[str, object]]]
-
-REFUSAL_MESSAGE = (
-    "I could not find any relevant information in the knowledge base to answer "
-    "that question. Please ingest relevant documents first, or rephrase the question."
-)
 
 
 def make_retrieve_node(knowledge_search: KnowledgeSearch) -> Node:
@@ -44,7 +43,7 @@ def make_grade_node(min_relevance_score: float) -> Node:
 
     async def grade(state: RagState) -> dict[str, object]:
         retrieved = state.get("retrieved_chunks", [])
-        relevant = [chunk for chunk in retrieved if chunk.score >= min_relevance_score]
+        relevant = filter_relevant_evidence(retrieved, min_relevance_score)
         return {"relevant_chunks": relevant}
 
     return grade
@@ -52,7 +51,7 @@ def make_grade_node(min_relevance_score: float) -> Node:
 
 def route_after_grading(state: RagState) -> str:
     """Conditional edge: no relevant evidence → honest refusal, never hallucinate."""
-    return "generate" if state.get("relevant_chunks") else "refuse"
+    return decide_answer_route(state.get("relevant_chunks", []))
 
 
 def make_generate_node(generator: AnswerGenerator) -> Node:
@@ -76,6 +75,6 @@ def make_refuse_node() -> Node:
     """
 
     async def refuse(state: RagState) -> dict[str, object]:
-        return {"answer": Answer(text=REFUSAL_MESSAGE, sources=())}
+        return {"answer": refusal_answer()}
 
     return refuse

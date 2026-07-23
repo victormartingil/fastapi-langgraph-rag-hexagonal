@@ -1,16 +1,6 @@
-"""The AskQuestion use case: the read side's single entry point.
+"""The AskQuestion use case: the assistant's public entry point."""
 
-It validates the input, runs the LangGraph pipeline, and unwraps the answer.
-The graph is injected as a compiled LangGraph `CompiledStateGraph`; the use
-case knows the SHAPE of the state (`RagState`) but nothing about retrieval
-dialects or LLM vendors.
-"""
-
-from typing import cast
-
-from langgraph.graph.state import CompiledStateGraph
-
-from knowledge_assistant.assistant.application.graph.state import RagState
+from knowledge_assistant.assistant.application.ports import RagWorkflow
 from knowledge_assistant.assistant.domain.exceptions import EmptyQuestionError
 from knowledge_assistant.assistant.domain.models import Answer
 
@@ -27,11 +17,11 @@ class AskQuestion:
 
     def __init__(
         self,
-        graph: CompiledStateGraph[RagState, None, RagState, RagState],
+        workflow: RagWorkflow,
         *,
         default_top_k: int = DEFAULT_TOP_K,
     ) -> None:
-        self._graph = graph
+        self._workflow = workflow
         self._default_top_k = default_top_k
 
     async def execute(self, question: str, top_k: int | None = None) -> Answer:
@@ -39,6 +29,4 @@ class AskQuestion:
             raise EmptyQuestionError("Question cannot be empty")
 
         effective_top_k = top_k if top_k is not None else self._default_top_k
-        initial_state: RagState = {"question": question, "top_k": effective_top_k}
-        final_state = cast("RagState", await self._graph.ainvoke(initial_state))
-        return final_state["answer"]
+        return await self._workflow.run(question, effective_top_k)

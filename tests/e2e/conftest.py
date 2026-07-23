@@ -24,8 +24,10 @@ from knowledge_assistant import bootstrap
 from knowledge_assistant.assistant.adapters.outbound.knowledge.in_process import (
     InProcessKnowledgeSearchAdapter,
 )
+from knowledge_assistant.assistant.adapters.outbound.orchestration.langgraph.builder import (
+    LangGraphRagWorkflow,
+)
 from knowledge_assistant.assistant.application.ask import AskQuestion
-from knowledge_assistant.assistant.application.graph.builder import build_rag_graph
 from knowledge_assistant.assistant.domain.exceptions import GenerationUnavailableError
 from knowledge_assistant.assistant.domain.models import Answer, RetrievedChunk, Source
 from knowledge_assistant.bootstrap import Container, build_container
@@ -198,10 +200,10 @@ def _install_dependency_overrides(app: FastAPI) -> None:
     ) -> AskQuestion:
         retriever = PgVectorHybridRetriever(session, fake_embeddings)
         knowledge_search = InProcessKnowledgeSearchAdapter(SearchKnowledge(retriever))
-        graph = build_rag_graph(
+        workflow = LangGraphRagWorkflow(
             knowledge_search, ScriptedAnswerGenerator(), min_relevance_score=0.028
-        ).compile()
-        return AskQuestion(graph)
+        )
+        return AskQuestion(workflow)
 
     app.dependency_overrides[bootstrap.provide_ingest_document] = override_provide_ingest_document
     app.dependency_overrides[bootstrap.provide_ask_question] = override_provide_ask_question
