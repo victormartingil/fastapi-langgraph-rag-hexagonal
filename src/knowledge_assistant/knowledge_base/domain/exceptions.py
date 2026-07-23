@@ -85,22 +85,6 @@ class ConcurrentIngestionError(DomainError):
         self.content_hash = content_hash
 
 
-class KnowledgeBaseUnavailableError(DomainError):
-    """Raised when the database itself is unreachable (connection refused,
-    dropped, network partition) — a 503-class outage signal.
-
-    Deliberately distinct from RetrievalUnavailableError (assistant context): the
-    WRITE side owns its own outage signal so the bounded contexts stay
-    decoupled. SQL bugs (ProgrammingError and friends) are NOT translated —
-    they are 500-class bugs and must stay loud.
-    """
-
-    def __init__(self, reason: str = "database unreachable") -> None:
-        super().__init__(
-            f"The knowledge base is temporarily unavailable ({reason}). Please try again shortly."
-        )
-
-
 class EmbeddingDimensionMismatchError(RuntimeError):
     """Raised when the embedding provider returns vectors of the wrong size.
 

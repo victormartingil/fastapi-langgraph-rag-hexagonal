@@ -1,4 +1,4 @@
-"""Unit tests for the retriever's outage translation (adapter -> domain signal).
+"""Unit tests for retriever outage translation (adapter -> application signal).
 
 PgVectorHybridRetriever sits at the port boundary: like the repository
 translating IntegrityError into DuplicateDocumentError, it translates
@@ -18,9 +18,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from knowledge_assistant.knowledge_base.adapters.outbound.retrieval.pgvector_hybrid import (
     PgVectorHybridRetriever,
 )
+from knowledge_assistant.knowledge_base.application.exceptions import (
+    KnowledgeBaseUnavailableError,
+)
 from knowledge_assistant.knowledge_base.domain.exceptions import (
     EmbeddingProviderUnavailableError,
-    KnowledgeBaseUnavailableError,
 )
 from knowledge_assistant.knowledge_base.domain.value_objects import EmbeddingVector
 from tests.unit.fakes import FakeEmbeddingProvider

@@ -62,14 +62,21 @@ def observe_operation(
     started = time.perf_counter()
     outcome = "ok"
     with _tracer().start_as_current_span(
-        f"rag.{operation}", attributes=dict(attributes or {})
+        f"rag.{operation}",
+        attributes=dict(attributes or {}),
+        record_exception=False,
+        set_status_on_exception=False,
     ) as span:
         try:
             yield
         except BaseException as exc:
             outcome = "error"
-            span.record_exception(exc)
-            span.set_status(Status(StatusCode.ERROR, type(exc).__name__))
+            # Exception messages and stack traces can contain filenames,
+            # provider payloads, query text, or document fragments. Record
+            # only the exception class, which groups failures without
+            # exporting user content.
+            span.set_attribute("error.type", type(exc).__qualname__)
+            span.set_status(Status(StatusCode.ERROR))
             raise
         finally:
             metric_attributes = {"rag.operation.name": operation, "outcome": outcome}

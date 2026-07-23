@@ -8,7 +8,7 @@ The session is injected per unit of work by the composition root;
 transaction control (commit/rollback) lives in `session_scope`, not here.
 
 Outage doctrine: a DEAD database (connection refused/dropped — SQLAlchemy's
-OperationalError/InterfaceError) is translated into the domain signal
+OperationalError/InterfaceError) is translated into the application signal
 `KnowledgeBaseUnavailableError` (→ HTTP 503), symmetric with the retriever's
 translation on the read path. SQL BUGS (ProgrammingError etc.) are NOT
 translated: they are 500-class defects, not outages.
@@ -31,10 +31,12 @@ from knowledge_assistant.knowledge_base.adapters.outbound.persistence.models imp
     ChunkModel,
     DocumentModel,
 )
+from knowledge_assistant.knowledge_base.application.exceptions import (
+    KnowledgeBaseUnavailableError,
+)
 from knowledge_assistant.knowledge_base.application.read_models import DocumentSummary
 from knowledge_assistant.knowledge_base.domain.exceptions import (
     DuplicateDocumentError,
-    KnowledgeBaseUnavailableError,
 )
 from knowledge_assistant.knowledge_base.domain.models import Document
 from knowledge_assistant.knowledge_base.domain.value_objects import DocumentId
@@ -44,7 +46,7 @@ from knowledge_assistant.platform.database.session import is_db_outage_error
 @asynccontextmanager
 async def _translate_db_outage() -> AsyncIterator[None]:
     """One translation for every public method: a connection-level failure
-    becomes the domain's 503 signal; everything else (IntegrityError,
+    becomes the application's 503 signal; everything else (IntegrityError,
     ProgrammingError, bugs) escapes untouched."""
     try:
         yield

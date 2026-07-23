@@ -14,13 +14,23 @@ from knowledge_assistant.knowledge_base.domain.exceptions import TextExtractionE
 
 
 class TestPdfTextExtractor:
-    def test_corrupt_pdf_raises_a_domain_error(self) -> None:
+    def test_corrupt_pdf_raises_without_logging_uploaded_bytes(
+        self,
+        caplog: pytest.LogCaptureFixture,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
         """pypdf raises its own exception zoo on unreadable files; the adapter
         quarantines it into one domain signal."""
         extractor = PdfTextExtractor()
+        private_bytes = b"private customer account 1234"
 
         with pytest.raises(TextExtractionError, match=r"broken\.pdf"):
-            extractor.extract("broken.pdf", b"this is not a PDF at all")
+            extractor.extract("broken.pdf", private_bytes)
+
+        captured = capsys.readouterr()
+        assert "private customer" not in caplog.text
+        assert "private customer" not in captured.out
+        assert "private customer" not in captured.err
 
     def test_supports_only_pdf(self) -> None:
         extractor = PdfTextExtractor()
