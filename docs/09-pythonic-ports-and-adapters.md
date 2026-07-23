@@ -29,9 +29,7 @@ typing:
 
 ```python
 class KnowledgeSearch(Protocol):
-    async def search(
-        self, question: str, limit: int
-    ) -> list[RetrievedChunk]: ...
+    async def search(self, question: str, limit: int) -> list[RetrievedChunk]: ...
 ```
 
 An adapter satisfies the port by having the right behavior and signature. It
