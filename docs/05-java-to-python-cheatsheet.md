@@ -1,49 +1,32 @@
-# 05 — Java to Python Cheatsheet
+# Already coming from Java?
 
-> Coming from Spring/Java? This project was built with you in mind. Every
-> Java reflex has an idiomatic Python counterpart — usually less code, always
-> explicit.
+Start with
+[`victormartingil/python-for-java-devs`](https://github.com/victormartingil/python-for-java-devs).
+That project explains the language and ecosystem transition: dataclasses,
+Protocols, dependency injection, testing, packaging, async code, and the
+Python alternatives to common Java/Spring patterns.
 
-| Java / Spring                        | Python (this repo)                                  | Notes |
-| ------------------------------------ | --------------------------------------------------- | ----- |
-| `record`                             | `@dataclass(frozen=True)`                            | Value semantics; validation in `__post_init__` |
-| `interface`                          | `typing.Protocol`                                    | **Structural**: no `implements`, no inheritance |
-| `class X implements Y`               | just write matching methods                          | mypy checks conformance statically |
-| ArchUnit                             | **import-linter** contracts (`pyproject.toml`)       | Executed in `tests/architecture/` |
-| Spring `@Configuration` / DI container | `bootstrap.py` (composition root) + `Depends`      | Constructor injection, no framework magic |
-| `@Autowired`                         | constructor parameter with a Protocol type           | Wired in one place: `bootstrap.py` |
-| Flyway / Liquibase                   | **Alembic** (`platform/database/migrations/`)    | `alembic upgrade head` |
-| JPA `@Entity`                        | SQLAlchemy `Mapped[...]` models (infrastructure!)    | Never returned to upper layers |
-| MapStruct / manual converters        | `mappers.py` modules                                 | Plain functions, unit-tested |
-| `@RestController`                    | FastAPI router (thin HTTP adapter)                   | Schemas in Pydantic, domain in dataclasses |
-| DTO                                  | Pydantic `BaseModel` schema in `http/schemas.py`     | Validation at the boundary |
-| `@Transactional`                     | `session_scope()` context manager                    | Commit on success, rollback on exception |
-| Maven / Gradle                       | **uv** (`pyproject.toml` + `uv.lock`)                | `uv sync`, `uv run ...` |
-| JUnit 5                              | **pytest**                                           | Functions, fixtures, `parametrize` |
-| Mockito                              | hand-written fakes (`tests/unit/fakes.py`)           | Working implementations, not call assertions |
-| Testcontainers Java                  | `testcontainers[postgres]`                           | Same idea, same Docker requirement |
-| SLF4J + MDC                          | **structlog** + correlation-ID middleware            | Context bound per request via contextvars |
-| Resilience4j `@Retry` / circuit breaker | **tenacity** + graceful fallback in the LLM adapter | Retries with exponential backoff |
-| Strategy pattern (interface + beans) | Protocol + one adapter per vendor, chosen in `bootstrap.py` | e.g. Ollama vs OpenAI |
-| Chain of Responsibility              | `Sequence[TextExtractor]` with `supports()`          | First capable extractor wins |
-| Lombok                               | `@dataclass`                                         | (but write it out — didactic repo) |
-| `application.yml` + `@ConfigurationProperties` | `pydantic-settings` `BaseSettings`     | Typed, validated, `.env`-backed |
+This repository does not repeat that material. It is the advanced continuation:
 
-## The three reflexes to unlearn
+- `python-for-java-devs` uses modular organization as the pragmatic default;
+- this project shows when multiple real integration boundaries justify
+  formal ports and adapters;
+- two bounded contexts demonstrate ownership without introducing
+  microservices;
+- LangGraph is isolated as infrastructure rather than allowed to become the
+  application architecture;
+- tests, RAG evaluations, threat modeling, observability, packaging, and
+  supply-chain controls show the path from example code to a reusable
+  engineering reference.
 
-1. **Stop writing interfaces for everything.** A Protocol only where a seam
-   is real (ports). Concrete classes elsewhere.
-2. **Stop reaching for a framework.** DI is a module (`bootstrap.py`).
-   Transactions are a context manager. Middleware is a class.
-3. **Stop hiding mapping behind annotations.** The mappers are plain
-   functions you can breakpoint, review, and unit-test.
+Continue here:
 
-## Where to look first
+1. [Architecture overview](00-architecture-overview.md)
+2. [Bounded-context ownership](08-bounded-context-ownership.md)
+3. [Pythonic ports and adapters](09-pythonic-ports-and-adapters.md)
+4. [LangGraph orchestration adapter](03-langgraph-orchestration.md)
 
-| You'd look for…               | Go to                                                              |
-| ----------------------------- | ------------------------------------------------------------------ |
-| the "service layer"           | `knowledge_base/application/ingest.py`, `queries.py`, `assistant/application/ask.py` |
-| the "repository interfaces"   | `*/application/ports.py`                                           |
-| the "JPA entities"            | `knowledge_base/adapters/outbound/persistence/models.py`                   |
-| the "Spring config"           | `bootstrap.py`, `config.py`                                        |
-| the "integration tests"       | `tests/integration/`, `tests/e2e/`                                 |
+The main translation principle is simple: preserve the engineering purpose of
+SOLID and clean boundaries, but express it with modules, functions,
+structural typing, dataclasses, context managers, and explicit composition
+instead of recreating Spring's ceremony.

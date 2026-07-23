@@ -66,8 +66,9 @@ between the two legs** — a deterministic, zero-cost grader.
 - **The FTS language is schema-bound.** The generated `tsv` column bakes in
   the text-search configuration chosen via `KA_FTS_LANGUAGE` at migration
   time (migration 0003). Changing languages therefore means rebuilding the
-  schema on a fresh database — `KA_FTS_LANGUAGE=spanish uv run alembic
-  upgrade head` — not flipping a runtime flag. This mirrors the embedding
+  schema on a fresh database —
+  `KA_FTS_LANGUAGE=spanish uv run --locked alembic upgrade head` — not
+  flipping a runtime flag. This mirrors the embedding
   dimension (ADR-0001): retrieval correctness depends on the stored column
   matching the query-time configuration. Drift between the two is guarded
   twice (ADR-0004): Alembic reads the same `.env` as the app, and a startup

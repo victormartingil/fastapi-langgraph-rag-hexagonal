@@ -17,7 +17,7 @@ Dependencies may only point **inward**:
         │  ┌───────────────────────────────────────┐  │
         │  │            application                │  │
         │  │  use cases + ports (Protocols) +      │  │
-        │  │  the LangGraph RAG pipeline           │  │
+        │  │  pure application policies            │  │
         │  │        │  (depends on ↓)              │  │
         │  │  ┌───────────────────────────────┐    │  │
         │  │  │            domain             │    │  │
@@ -107,9 +107,10 @@ PydanticAiAnswerGenerator
 
 The prefix makes the coupling visible in the name. Adapters implement ports
 **structurally** (no `class X(DocumentRepository)`), and all vendor knowledge
-is quarantined inside them. Swapping Ollama for OpenAI is a `.env` change;
-swapping PostgreSQL for Qdrant is one new file plus one line in
-`bootstrap.py`.
+is quarantined inside them. Swapping Ollama for OpenAI is a `.env` change.
+Replacing PostgreSQL retrieval requires a new `KnowledgeRetriever` adapter,
+composition, migrations/backfill, and integration/evaluation evidence—but no
+change to the use case that consumes the port.
 
 ## Explicit mappers at every boundary
 
@@ -131,11 +132,11 @@ which concrete classes exist. It does two things:
 
 1. `build_container(settings)` creates long-lived adapters (engine, HTTP
    clients, providers).
-2. `provide_*` functions are FastAPI dependencies that assemble per-request
-   use cases from a fresh session + the long-lived adapters.
+2. `provide_*` functions retrieve them from `app.state` and assemble
+   per-request sessions, use cases, and the workflow.
 
-Routers never construct anything; they declare
-`use_case: Annotated[IngestDocument, Depends(container.provide_ingest_document)]`.
+Routers never construct adapters; they declare, for example,
+`use_case: Annotated[IngestDocument, Depends(bootstrap.provide_ingest_document)]`.
 
 This gives you constructor injection without a DI framework, and it makes
 testing trivial: tests either call use cases with fakes directly (unit) or
@@ -147,13 +148,15 @@ override the `provide_*` dependency (e2e).
 Q&A. The assistant does not know its tables or persistence models. Its
 `KnowledgeSearch` port is implemented by one in-process adapter that calls the
 public `SearchKnowledge` use case. Import-linter allows only that explicit
-bridge. `shared_kernel` remains deliberately tiny: shared value objects and
-domain-level error types, not services or vendor abstractions.
+bridge. `shared_kernel` remains deliberately tiny: only the `DomainError`
+root genuinely shared by both contexts, never services or vendor abstractions.
 
 ## Further reading
 
-- *Architecture Patterns with Python* (Percival & Gregory) — the style guide
-  for this codebase.
+- [Architecture overview](00-architecture-overview.md) — C4 context,
+  containers, context boundaries, and quality attributes.
+- [Pythonic ports and adapters](09-pythonic-ports-and-adapters.md) — the
+  abstraction trade-offs and deliberately absent patterns.
 - `docs/adr/0002-langgraph-as-orchestration-adapter.md` — where the orchestrator
   sits and why.
 - `docs/05-java-to-python-cheatsheet.md` — if you come from Spring/Java.

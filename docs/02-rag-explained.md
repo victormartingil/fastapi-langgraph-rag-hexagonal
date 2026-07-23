@@ -118,7 +118,7 @@ leg needs language configuration at two levels:
   **schema-bound**: migration 0003 builds the `tsv` column for the language
   named in the environment *at migration time*, so switching languages means
   rebuilding the schema on a fresh database
-  (`KA_FTS_LANGUAGE=spanish uv run alembic upgrade head`). For genuinely
+  (`KA_FTS_LANGUAGE=spanish uv run --locked alembic upgrade head`). For genuinely
   mixed-language corpora, `simple` (no stemming, no stop words) is the honest
   fallback.
 
@@ -158,7 +158,7 @@ With `rrf_k = 60`, the best a **single-leg** match can score is
 `1/61 ≈ 0.0164`. Our default threshold `0.028` is unreachable for single-leg
 matches, so a chunk effectively must be found by **both** legs to count as
 evidence — a cheap, deterministic "consensus" grader. (An LLM-as-judge
-grader is a documented roadmap item.)
+grader is a documented evolution option.)
 
 More precisely, consensus alone is not enough — it must be consensus at
 **rank ≲ 11 on both legs**: two legs at rank *r* score `2/(60 + r)`, which
@@ -183,8 +183,8 @@ modes:
 We accept both because a wrong refusal is recoverable (rephrase, or lower
 `KA_MIN_RELEVANCE_SCORE`) while a confident hallucination is not. The real
 fix is an LLM-as-judge grader that scores each chunk semantically —
-[docs/03](docs/03-langgraph-orchestration.md#extending-the-graph-guided-exercise)
-blueprints it as a guided exercise.
+the [advanced semantic-grader exercise](11-advanced-exercises.md#7-replace-deterministic-grading-with-a-reranker)
+defines the questions that change must answer.
 
 ## Step 6 — Generation (or honest refusal)
 
@@ -199,8 +199,9 @@ and — critically — demands **structured output**: JSON validated against a
 Pydantic schema `{answer, source_indices}`. Chunks are numbered `[1]`, `[2]`,
 … in the prompt and the model cites those **numbers**, not database IDs —
 small integers are far easier for an LLM to copy faithfully than UUIDs.
-Citations pointing at chunks we never provided are dropped, so a hallucinated
-citation cannot leak through.
+Citations pointing at chunks we never provided make the structured output
+invalid. The adapter retries validation and then returns a typed 502; a
+hallucinated citation cannot leak through as a successful answer.
 
 **Degradation is honest on every path — one doctrine everywhere.** A
 *transient* failure that outlives its retries becomes a domain signal the
