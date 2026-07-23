@@ -306,7 +306,7 @@ e.g. `feat(chat): add grading node`.
 
 **Mid** — "own a feature":
 1. `docs/01-hexagonal-architecture-in-python.md` and the ADRs.
-2. `assistant/application/graph/` — state, nodes, routing, builder.
+2. `assistant/application/policies.py` and the LangGraph orchestration adapter.
 3. `docs/04-testing-strategy.md`; break an import-linter rule on purpose and
    watch CI catch it.
 4. Exercise: implement the LLM-based grader from
@@ -314,7 +314,7 @@ e.g. `feat(chat): add grading node`.
 
 **Senior** — "judge the trade-offs":
 1. ADRs [0001](docs/adr/0001-pgvector-as-vector-store.md) /
-   [0002](docs/adr/0002-langgraph-in-application-layer.md) /
+   [0002](docs/adr/0002-langgraph-as-orchestration-adapter.md) /
    [0003](docs/adr/0003-hybrid-retrieval.md) — argue with them.
 2. The RRF SQL in `knowledge_base/adapters/outbound/retrieval/pgvector_hybrid.py` and its
    integration tests.

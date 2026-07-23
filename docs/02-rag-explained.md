@@ -150,7 +150,7 @@ extension-level commitment.
 
 ## Step 5 — Grading
 
-`assistant/application/graph/nodes.py::make_grade_node`. Retrieval always returns
+`assistant/application/policies.py::filter_relevant_evidence`. Retrieval always returns
 *something*, even for nonsense questions — the top result of a bad search is
 still a result. Grading filters chunks below `min_relevance_score`.
 

@@ -7,16 +7,18 @@ relevant context survives grading, the answer is an honest refusal.
 
 import pytest
 
-from knowledge_assistant.assistant.application.ask import AskQuestion
-from knowledge_assistant.assistant.application.graph.builder import build_rag_graph
-from knowledge_assistant.assistant.application.graph.nodes import (
-    REFUSAL_MESSAGE,
+from knowledge_assistant.assistant.adapters.outbound.orchestration.langgraph.builder import (
+    LangGraphRagWorkflow,
+)
+from knowledge_assistant.assistant.adapters.outbound.orchestration.langgraph.nodes import (
     make_generate_node,
     make_grade_node,
     make_retrieve_node,
     route_after_grading,
 )
-from knowledge_assistant.assistant.application.graph.state import RagState
+from knowledge_assistant.assistant.adapters.outbound.orchestration.langgraph.state import RagState
+from knowledge_assistant.assistant.application.ask import AskQuestion
+from knowledge_assistant.assistant.application.policies import REFUSAL_MESSAGE
 from knowledge_assistant.assistant.application.ports import KnowledgeSearch
 from knowledge_assistant.assistant.domain.exceptions import (
     EmptyQuestionError,
@@ -95,8 +97,8 @@ class TestAskQuestionOverCompiledGraph:
     def build_use_case(
         self, retriever: KnowledgeSearch, generator: FakeAnswerGenerator
     ) -> AskQuestion:
-        graph = build_rag_graph(retriever, generator, min_relevance_score=0.028).compile()
-        return AskQuestion(graph)
+        workflow = LangGraphRagWorkflow(retriever, generator, min_relevance_score=0.028)
+        return AskQuestion(workflow)
 
     async def test_relevant_evidence_produces_a_cited_answer(self) -> None:
         retriever = FakeKnowledgeSearch([make_retrieved_chunk(score=0.033)])
@@ -146,8 +148,8 @@ class TestAskQuestionOverCompiledGraph:
         the server default, not a hardcoded one."""
         retriever = FakeKnowledgeSearch([make_retrieved_chunk()])
         generator = FakeAnswerGenerator(make_answer())
-        graph = build_rag_graph(retriever, generator, min_relevance_score=0.0).compile()
-        use_case = AskQuestion(graph, default_top_k=3)
+        workflow = LangGraphRagWorkflow(retriever, generator, min_relevance_score=0.0)
+        use_case = AskQuestion(workflow, default_top_k=3)
 
         await use_case.execute("q?")
         await use_case.execute("q?", top_k=1)

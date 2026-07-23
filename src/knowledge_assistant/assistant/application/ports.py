@@ -24,6 +24,14 @@ class KnowledgeSearch(Protocol):
         ...
 
 
+class RagWorkflow(Protocol):
+    """Port for executing retrieval, grounding, and answer generation."""
+
+    async def run(self, question: str, top_k: int) -> Answer:
+        """Return a grounded answer or an explicit refusal."""
+        ...
+
+
 class AnswerGenerator(Protocol):
     """Port toward the LLM that writes the final, cited answer."""
 

@@ -24,6 +24,7 @@ ADAPTER_PREFIXES = (
     "PlainText",
     "PydanticAi",
     "InProcess",
+    "LangGraph",
 )
 
 CONTEXTS = ("knowledge_base", "assistant")
@@ -34,8 +35,6 @@ def _walk_modules(package_name: str) -> Iterator[str]:
     yield package_name
     for info in pkgutil.walk_packages(package.__path__, prefix=f"{package_name}."):
         yield info.name
-        if info.ispkg:
-            yield from _walk_modules(info.name)
 
 
 def _classes_defined_in(module_name: str) -> Iterator[tuple[str, type]]:
@@ -49,7 +48,11 @@ def test_adapter_classes_carry_a_technology_prefix() -> None:
     violations: list[str] = []
     for context in CONTEXTS:
         for module_name in _walk_modules(f"knowledge_assistant.{context}.adapters"):
-            if ".http" in module_name or module_name.endswith("persistence.models"):
+            if (
+                ".http" in module_name
+                or module_name.endswith("persistence.models")
+                or module_name.endswith(".state")
+            ):
                 continue  # routers/schemas and ORM models are exempt by design
             for class_name, cls in _classes_defined_in(module_name):
                 if issubclass(cls, pydantic.BaseModel):

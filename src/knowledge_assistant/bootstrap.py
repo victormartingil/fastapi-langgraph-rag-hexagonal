@@ -29,8 +29,10 @@ from knowledge_assistant.assistant.adapters.outbound.knowledge.in_process import
 from knowledge_assistant.assistant.adapters.outbound.llm.pydantic_ai import (
     PydanticAiAnswerGenerator,
 )
+from knowledge_assistant.assistant.adapters.outbound.orchestration.langgraph.builder import (
+    LangGraphRagWorkflow,
+)
 from knowledge_assistant.assistant.application.ask import AskQuestion
-from knowledge_assistant.assistant.application.graph.builder import build_rag_graph
 from knowledge_assistant.assistant.application.ports import AnswerGenerator
 from knowledge_assistant.config import Settings
 from knowledge_assistant.knowledge_base.adapters.outbound.embeddings.ollama import (
@@ -394,9 +396,9 @@ def provide_ask_question(
         tsconfig=settings.fts_language,
     )
     knowledge_search = InProcessKnowledgeSearchAdapter(SearchKnowledge(retriever))
-    graph = build_rag_graph(
+    workflow = LangGraphRagWorkflow(
         knowledge_search,
         container.answer_generator,
         min_relevance_score=settings.min_relevance_score,
-    ).compile()
-    return AskQuestion(graph, default_top_k=settings.retrieval_top_k)
+    )
+    return AskQuestion(workflow, default_top_k=settings.retrieval_top_k)

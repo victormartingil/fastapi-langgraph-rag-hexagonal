@@ -154,6 +154,6 @@ domain-level error types, not services or vendor abstractions.
 
 - *Architecture Patterns with Python* (Percival & Gregory) — the style guide
   for this codebase.
-- `docs/adr/0002-langgraph-in-application-layer.md` — where the orchestrator
+- `docs/adr/0002-langgraph-as-orchestration-adapter.md` — where the orchestrator
   sits and why.
 - `docs/05-java-to-python-cheatsheet.md` — if you come from Spring/Java.

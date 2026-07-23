@@ -5,17 +5,19 @@ The graph is the READ-SIDE use case expressed as a state machine:
     START → retrieve → grade ──┬─ (evidence found)   → generate → END
                                └─ (no evidence)      → refuse   → END
 
-Why does this live in the APPLICATION layer? Because "retrieve, grade, then
-answer or refuse" is application policy — the same policy would exist with a
-different orchestrator. LangGraph is used as a library here; the domain does
-not import it (see ADR-0002 and the import-linter contracts).
+LangGraph is an outbound orchestration adapter. The decisions it coordinates
+live as pure application policies, while this module owns graph-specific
+state, nodes, edges, and compilation.
 """
+
+from typing import cast
 
 from langgraph.graph import END, START, StateGraph
 
-from knowledge_assistant.assistant.application.graph import nodes
-from knowledge_assistant.assistant.application.graph.state import RagState
+from knowledge_assistant.assistant.adapters.outbound.orchestration.langgraph import nodes
+from knowledge_assistant.assistant.adapters.outbound.orchestration.langgraph.state import RagState
 from knowledge_assistant.assistant.application.ports import AnswerGenerator, KnowledgeSearch
+from knowledge_assistant.assistant.domain.models import Answer
 
 
 def build_rag_graph(
@@ -52,3 +54,25 @@ def build_rag_graph(
     graph.add_edge("refuse", END)
 
     return graph
+
+
+class LangGraphRagWorkflow:
+    """LangGraph implementation of the application ``RagWorkflow`` port."""
+
+    def __init__(
+        self,
+        knowledge_search: KnowledgeSearch,
+        answer_generator: AnswerGenerator,
+        *,
+        min_relevance_score: float,
+    ) -> None:
+        self._graph = build_rag_graph(
+            knowledge_search,
+            answer_generator,
+            min_relevance_score=min_relevance_score,
+        ).compile()
+
+    async def run(self, question: str, top_k: int) -> Answer:
+        initial_state: RagState = {"question": question, "top_k": top_k}
+        final_state = cast("RagState", await self._graph.ainvoke(initial_state))
+        return final_state["answer"]
