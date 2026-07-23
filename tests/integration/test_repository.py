@@ -16,9 +16,12 @@ from knowledge_assistant.knowledge_base.adapters.outbound.persistence.repository
 )
 from knowledge_assistant.knowledge_base.domain.exceptions import DuplicateDocumentError
 from knowledge_assistant.knowledge_base.domain.models import Chunk, Document
-from knowledge_assistant.knowledge_base.domain.value_objects import ChunkText, DocumentId
+from knowledge_assistant.knowledge_base.domain.value_objects import (
+    ChunkText,
+    DocumentId,
+    EmbeddingVector,
+)
 from knowledge_assistant.platform.database.session import session_scope
-from knowledge_assistant.shared_kernel.value_objects import EmbeddingVector
 
 pytestmark = pytest.mark.integration
 

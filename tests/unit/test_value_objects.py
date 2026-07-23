@@ -4,8 +4,11 @@ import uuid
 
 import pytest
 
-from knowledge_assistant.knowledge_base.domain.value_objects import ChunkText, DocumentId
-from knowledge_assistant.shared_kernel.value_objects import EmbeddingVector
+from knowledge_assistant.knowledge_base.domain.value_objects import (
+    ChunkText,
+    DocumentId,
+    EmbeddingVector,
+)
 
 
 class TestChunkText:

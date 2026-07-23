@@ -52,6 +52,22 @@ class ChunkText:
         return self.value
 
 
-# NOTE: `EmbeddingVector` is NOT defined here. Both bounded contexts need it
-# (write side embeds chunks, read side embeds questions), so it lives in the
-# shared kernel: knowledge_assistant.shared_kernel.value_objects.
+@dataclass(frozen=True, slots=True)
+class EmbeddingVector:
+    """A dense vector produced by the knowledge-base embedding provider.
+
+    Only non-emptiness is intrinsic to the value. The configured model
+    dimension is enforced by `IngestDocument` and by the fixed-size pgvector
+    column, where that deployment-specific invariant belongs.
+    """
+
+    values: tuple[float, ...]
+
+    def __post_init__(self) -> None:
+        if not self.values:
+            msg = "EmbeddingVector cannot be empty"
+            raise ValueError(msg)
+
+    @property
+    def dimension(self) -> int:
+        return len(self.values)

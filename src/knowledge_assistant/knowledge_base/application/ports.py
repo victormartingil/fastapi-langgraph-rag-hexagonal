@@ -18,8 +18,7 @@ from knowledge_assistant.knowledge_base.application.read_models import (
     KnowledgeHit,
 )
 from knowledge_assistant.knowledge_base.domain.models import Document
-from knowledge_assistant.knowledge_base.domain.value_objects import DocumentId
-from knowledge_assistant.shared_kernel.value_objects import EmbeddingVector
+from knowledge_assistant.knowledge_base.domain.value_objects import DocumentId, EmbeddingVector
 
 __all__ = [
     "DocumentRepository",

@@ -22,7 +22,7 @@ from knowledge_assistant.knowledge_base.domain.exceptions import (
     EmbeddingProviderUnavailableError,
     KnowledgeBaseUnavailableError,
 )
-from knowledge_assistant.shared_kernel.value_objects import EmbeddingVector
+from knowledge_assistant.knowledge_base.domain.value_objects import EmbeddingVector
 from tests.unit.fakes import FakeEmbeddingProvider
 
 DIM = 768

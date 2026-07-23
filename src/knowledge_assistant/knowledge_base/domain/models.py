@@ -15,8 +15,11 @@ from datetime import UTC, datetime
 from knowledge_assistant.knowledge_base.domain.exceptions import (
     InvalidDocumentMetadataError,
 )
-from knowledge_assistant.knowledge_base.domain.value_objects import ChunkText, DocumentId
-from knowledge_assistant.shared_kernel.value_objects import EmbeddingVector
+from knowledge_assistant.knowledge_base.domain.value_objects import (
+    ChunkText,
+    DocumentId,
+    EmbeddingVector,
+)
 
 MAX_DOCUMENT_TITLE_LENGTH = 200
 MAX_FILE_NAME_LENGTH = 255
