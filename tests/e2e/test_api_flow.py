@@ -33,6 +33,15 @@ class TestHealthEndpoint:
         response = await client.get("/health", headers={"X-Correlation-ID": "test-123"})
         assert response.headers["X-Correlation-ID"] == "test-123"
 
+    @pytest.mark.parametrize("correlation_id", ["bad value", "x" * 129])
+    async def test_invalid_correlation_id_is_replaced(
+        self, client: AsyncClient, correlation_id: str
+    ) -> None:
+        response = await client.get("/health", headers={"X-Correlation-ID": correlation_id})
+
+        assert response.status_code == 200
+        assert response.headers["X-Correlation-ID"] != correlation_id
+
 
 class TestProbeSplit:
     """Liveness and readiness are DIFFERENT questions (F7): /livez answers
