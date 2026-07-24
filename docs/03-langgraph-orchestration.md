@@ -99,6 +99,24 @@ forbids LangGraph from domain and application.
 
 See `docs/adr/0002-langgraph-as-orchestration-adapter.md` for the decision record.
 
+## Scope deliberately kept small
+
+This project uses LangGraph for explicit orchestration, not as an excuse to
+add workflow features before they have a product requirement.
+
+| Feature | Current decision | Requirement that would justify it |
+| --- | --- | --- |
+| Checkpointer | Not implemented | durable runs, resumable workflows, human approval, or multi-turn memory |
+| Streaming | Not implemented | UX needs partial tokens or node-by-node progress |
+| Replay | Not implemented | audit/debug workflows where reproducing intermediate state matters |
+| Human-in-the-loop | Not implemented | approvals, escalation, redaction, or expert review before final answer |
+| Conversation memory | Not implemented | follow-up questions that depend on prior turns |
+
+Adding any of these changes the data model and operational contract. For
+example, a checkpointer stores user-linked state, so it needs retention,
+deletion, authorization, migration, and observability decisions. Until those
+requirements exist, the stateless request/response graph is the safer default.
+
 ## Extend it yourself
 
 The [advanced exercises](11-advanced-exercises.md) include checkpointer,

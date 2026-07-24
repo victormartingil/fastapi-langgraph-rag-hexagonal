@@ -67,6 +67,12 @@ Checkpointing is not “free memory”. It creates persisted user data and a new
 operational schema. The current stateless request/response flow should remain
 the default until those requirements exist.
 
+Streaming and replay belong to the same category: add them when they solve a
+visible problem. Streaming is useful for long answers or a product experience
+that must show progress. Replay is useful when operators need to debug or
+audit intermediate state. Both require API contract, telemetry, privacy, and
+test changes; neither is required for the current single-turn RAG workflow.
+
 ## 4. Introduce tenant isolation
 
 Trigger: any private multi-customer deployment.
