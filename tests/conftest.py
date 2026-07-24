@@ -47,7 +47,7 @@ def _run_migrations(database_url: str, extra_env: dict[str, str] | None = None) 
 
 @pytest.fixture(scope="session")
 def postgres_database_url() -> Iterator[str]:
-    """Start pgvector/pgvector:0.8.1-pg16, migrate it, yield its async SQLAlchemy URL.
+    """Start pgvector/pgvector:0.8.5-pg16, migrate it, yield its async SQLAlchemy URL.
 
     The image is pinned to the same tag as docker-compose.yml (verified on
     Docker Hub) so tests and the local stack run the same database.
@@ -55,8 +55,8 @@ def postgres_database_url() -> Iterator[str]:
     from testcontainers.postgres import PostgresContainer
 
     image = (
-        "pgvector/pgvector:0.8.1-pg16@"
-        "sha256:33198da2828a14c30348d2ccb4750833d5ed9a44c88d840a0e523d7417120337"
+        "pgvector/pgvector:0.8.5-pg16@"
+        "sha256:1d533553fefe4f12e5d80c7b80622ba0c382abb5758856f52983d8789179f0fb"
     )
     with PostgresContainer(image) as postgres:
         host = postgres.get_container_host_ip()
