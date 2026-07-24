@@ -43,7 +43,7 @@ from a domain module: the build goes red.
 ```python
 @dataclass(frozen=True, slots=True)
 class Chunk:
-    id: DocumentId
+    id: ChunkId
     text: ChunkText
     position: int
     embedding: EmbeddingVector | None = None
