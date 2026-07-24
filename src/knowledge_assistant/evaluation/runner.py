@@ -66,7 +66,7 @@ from knowledge_assistant.knowledge_base.application.queries import SearchKnowled
 from knowledge_assistant.knowledge_base.application.retrieval import RetrievalStrategy
 from knowledge_assistant.knowledge_base.domain.chunking import chunk_text
 from knowledge_assistant.knowledge_base.domain.models import Chunk, Document
-from knowledge_assistant.knowledge_base.domain.value_objects import ChunkText, DocumentId
+from knowledge_assistant.knowledge_base.domain.value_objects import ChunkId, ChunkText, DocumentId
 from knowledge_assistant.platform.database.session import (
     create_engine,
     create_session_factory,
@@ -376,7 +376,7 @@ async def _ingest_documents(
                     raw_text=raw_text,
                     chunks=tuple(
                         Chunk(
-                            id=_stable_document_id(str(item["id"]), str(position)),
+                            id=_stable_chunk_id(str(item["id"]), str(position)),
                             text=ChunkText(str(text)),
                             position=position,
                             embedding=embeddings[position],
@@ -390,6 +390,15 @@ async def _ingest_documents(
 
 def _stable_document_id(*parts: str) -> DocumentId:
     return DocumentId(
+        uuid.uuid5(
+            EVAL_NAMESPACE,
+            ":".join(parts),
+        )
+    )
+
+
+def _stable_chunk_id(*parts: str) -> ChunkId:
+    return ChunkId(
         uuid.uuid5(
             EVAL_NAMESPACE,
             ":".join(parts),

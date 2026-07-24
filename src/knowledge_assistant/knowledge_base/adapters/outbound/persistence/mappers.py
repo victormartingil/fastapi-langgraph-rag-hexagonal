@@ -12,6 +12,7 @@ from knowledge_assistant.knowledge_base.adapters.outbound.persistence.models imp
 from knowledge_assistant.knowledge_base.application.read_models import DocumentSummary
 from knowledge_assistant.knowledge_base.domain.models import Chunk, Document
 from knowledge_assistant.knowledge_base.domain.value_objects import (
+    ChunkId,
     ChunkText,
     DocumentId,
     EmbeddingVector,
@@ -36,7 +37,7 @@ def chunk_to_model(chunk: Chunk, document_id: DocumentId) -> ChunkModel:
 def chunk_to_domain(model: ChunkModel) -> Chunk:
     """ORM -> domain."""
     return Chunk(
-        id=DocumentId(model.id),
+        id=ChunkId(model.id),
         text=ChunkText(model.content),
         position=model.position,
         embedding=EmbeddingVector(tuple(float(v) for v in model.embedding)),
