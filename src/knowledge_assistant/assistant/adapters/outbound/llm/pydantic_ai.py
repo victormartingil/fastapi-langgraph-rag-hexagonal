@@ -30,18 +30,23 @@ rather than be reported as "temporary".
 """
 
 import json
+from typing import Literal
 
 import httpx
 import structlog
 from openai import APIConnectionError, AsyncOpenAI
 from pydantic import BaseModel, Field
-from pydantic_ai import Agent, ModelRetry, RunContext
+from pydantic_ai import Agent, ModelRetry, NativeOutput, RunContext, ToolOutput
 from pydantic_ai.exceptions import (
     ModelAPIError,
     ModelHTTPError,
     UnexpectedModelBehavior,
 )
-from pydantic_ai.models.openai import OpenAIChatModel
+from pydantic_ai.models import Model
+from pydantic_ai.models.ollama import OllamaModel
+from pydantic_ai.models.openai import OpenAIChatModel, OpenAIChatModelSettings
+from pydantic_ai.output import OutputSpec
+from pydantic_ai.providers.ollama import OllamaProvider
 from pydantic_ai.providers.openai import OpenAIProvider
 from tenacity import (
     retry,
@@ -62,6 +67,7 @@ from knowledge_assistant.platform.http.resilience import (
 from knowledge_assistant.platform.observability.telemetry import record_retry
 
 logger = structlog.get_logger()
+LlmProviderName = Literal["ollama", "openai"]
 
 
 def _is_transient_llm_error(exc: BaseException) -> bool:
@@ -91,7 +97,10 @@ ONLY the provided context chunks. Rules:
   facts, policies, dates or numbers.
 - Cite every claim by listing the NUMBERS of the chunks it comes from
   (chunks are numbered [1], [2], ... in the prompt).
-- Keep the answer concise and factual.
+- Keep the answer concise and factual. Include relevant conditions,
+  exceptions, limits, or time windows from the context.
+- Do not answer with only "yes" or "no"; explain the policy basis in one
+  sentence.
 """
 
 
@@ -111,14 +120,15 @@ class AnswerPayload(BaseModel):
 class PydanticAiAnswerGenerator:
     """Implements the `AnswerGenerator` port with pydantic-ai.
 
-    Works against Ollama's OpenAI-compatible endpoint by default (no API key
-    needed) and against the real OpenAI API when configured — only base_url,
-    api_key and model name differ.
+    Ollama and OpenAI share the same domain port, but not the same structured
+    output capability. Self-hosted Ollama uses provider-native JSON Schema
+    output; OpenAI stays on tool output for broad model compatibility.
     """
 
     def __init__(
         self,
         *,
+        provider: LlmProviderName,
         model_name: str,
         base_url: str,
         api_key: str,
@@ -129,6 +139,8 @@ class PydanticAiAnswerGenerator:
         # The HTTP client is INJECTED, not created here: the composition root
         # owns it (KA_LLM_TIMEOUT_SECONDS becomes its timeout) and closes it
         # on shutdown — an adapter-owned client would leak at process exit.
+        self._provider = provider
+        self._model_name = model_name
         self._http_client = http_client
         # `max_retries=0` on the SDK client is deliberate: tenacity (below)
         # is the single retry authority. With the SDK default (2 internal
@@ -140,13 +152,29 @@ class PydanticAiAnswerGenerator:
             http_client=http_client,
             max_retries=0,
         )
-        model = OpenAIChatModel(
-            model_name,
-            provider=OpenAIProvider(openai_client=openai_client),
-        )
+        model: Model
+        model_settings: OpenAIChatModelSettings = {
+            "temperature": 0.0,
+            "max_tokens": 512,
+        }
+        output_type: OutputSpec[AnswerPayload] = ToolOutput(AnswerPayload)
+        if provider == "ollama":
+            model_settings["openai_reasoning_effort"] = "none"
+            model = OllamaModel(
+                model_name,
+                provider=OllamaProvider(openai_client=openai_client),
+                settings=model_settings,
+            )
+            output_type = NativeOutput(AnswerPayload)
+        else:
+            model = OpenAIChatModel(
+                model_name,
+                provider=OpenAIProvider(openai_client=openai_client),
+                settings=model_settings,
+            )
         self._agent: Agent[int, AnswerPayload] = Agent(
             model,
-            output_type=AnswerPayload,
+            output_type=output_type,
             system_prompt=SYSTEM_PROMPT,
             deps_type=int,
             retries={"output": output_retries},
@@ -185,6 +213,14 @@ class PydanticAiAnswerGenerator:
             msg = "timeout_seconds requires a client built with a scalar timeout"
             raise RuntimeError(msg)
         return read_timeout
+
+    @property
+    def provider(self) -> LlmProviderName:
+        return self._provider
+
+    @property
+    def model_name(self) -> str:
+        return self._model_name
 
     async def generate(self, question: str, chunks: list[RetrievedChunk]) -> Answer:
         prompt = self._build_prompt(question, chunks)
