@@ -645,7 +645,7 @@ async def _main() -> None:
     )
     parser.add_argument("--ollama-url", default="http://localhost:11434")
     parser.add_argument("--embedding-model", default="nomic-embed-text")
-    parser.add_argument("--llm-model", default="qwen3.5:9b")
+    parser.add_argument("--llm-model", default="qwen3.5:2b-q4_K_M")
     parser.add_argument("--pgvector-image", default=DEFAULT_PGVECTOR_IMAGE)
     parser.add_argument("--output", type=Path, default=Path("evals/report.json"))
     args = parser.parse_args()

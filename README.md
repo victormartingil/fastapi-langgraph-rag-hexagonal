@@ -51,7 +51,7 @@ docker compose up --build
 ```
 
 This starts PostgreSQL+pgvector, Ollama, a one-shot init container that pulls
-`nomic-embed-text` + `qwen3.5:9b` (first run downloads a few GB), and the API
+`nomic-embed-text` + `qwen3.5:2b-q4_K_M` (first run downloads a few GB), and the API
 (migrations run automatically). Then:
 
 ```bash
@@ -218,14 +218,16 @@ If you run Ollama **natively** instead of via compose, pull the models once:
 
 ```bash
 ollama pull nomic-embed-text   # embeddings
-ollama pull qwen3.5:9b         # default answer generation
-ollama pull qwen3.5:4b         # optional lower-memory experiment
+ollama pull qwen3.5:2b-q4_K_M  # default answer generation
+ollama pull qwen3.5:4b-q4_K_M  # optional higher-quality override
+ollama pull qwen3.5:9b-q4_K_M  # optional higher-quality override
 ```
 
-The default local LLM is `qwen3.5:9b`. `qwen3.5:4b` supports schema-constrained
-output, but in the live smoke it produced valid citations with insufficient
-factual coverage on a simple policy question, so it is documented only as a
-lower-memory experiment via `KA_LLM_MODEL=qwen3.5:4b`.
+The default local LLM is `qwen3.5:2b-q4_K_M` because it keeps the public compose
+stack practical on modest developer machines while still using provider-native
+schema-constrained output. Use `KA_LLM_MODEL=qwen3.5:4b-q4_K_M` or
+`KA_LLM_MODEL=qwen3.5:9b-q4_K_M` when you can trade memory and startup time for
+stronger answer quality.
 
 Switching to OpenAI: provider flags drive per-provider defaults on **both**
 sides (model/endpoint/dimension are filled in automatically; override any of

@@ -90,7 +90,7 @@ class TestEmbeddingDimensionGuard:
         generator = container.answer_generator
         assert isinstance(generator, PydanticAiAnswerGenerator)
         assert generator.provider == "ollama"
-        assert generator.model_name == "qwen3.5:9b"
+        assert generator.model_name == "qwen3.5:2b-q4_K_M"
         await container.aclose()
 
 
