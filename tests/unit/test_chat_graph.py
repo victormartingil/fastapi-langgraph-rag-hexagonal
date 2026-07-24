@@ -5,8 +5,14 @@ no LLM — including the most important behavior of the whole system: when no
 relevant context survives grading, the answer is an honest refusal.
 """
 
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
+
 import pytest
 
+from knowledge_assistant.assistant.adapters.outbound.knowledge.in_process import (
+    InProcessKnowledgeSearchAdapter,
+)
 from knowledge_assistant.assistant.adapters.outbound.orchestration.langgraph.builder import (
     LangGraphRagWorkflow,
 )
@@ -26,6 +32,8 @@ from knowledge_assistant.assistant.domain.exceptions import (
     RetrievalUnavailableError,
 )
 from knowledge_assistant.assistant.domain.models import Answer, RetrievedChunk, Source
+from knowledge_assistant.knowledge_base.application.queries import SearchKnowledge
+from knowledge_assistant.knowledge_base.application.read_models import KnowledgeHit
 from tests.unit.fakes import (
     FailingKnowledgeSearch,
     FakeAnswerGenerator,
@@ -125,6 +133,50 @@ class TestAskQuestionOverCompiledGraph:
         assert answer.text == "You can return it within 30 days."
         assert len(answer.sources) == 1
         assert len(generator.calls) == 1  # the LLM was actually asked
+
+    async def test_retrieval_scope_is_closed_before_generation(self) -> None:
+        class ScopeRecorder:
+            currently_open = 0
+
+            @asynccontextmanager
+            async def open_retriever(self) -> AsyncIterator["ScopeRecorder"]:
+                self.currently_open += 1
+                try:
+                    yield self
+                finally:
+                    self.currently_open -= 1
+
+            async def retrieve(self, question: str, limit: int) -> list[KnowledgeHit]:
+                assert self.currently_open == 1
+                return [
+                    KnowledgeHit(
+                        chunk_id="chunk-1",
+                        document_id="doc-1",
+                        document_title="Policy",
+                        content="Relevant evidence.",
+                        score=0.05,
+                    )
+                ]
+
+        class GeneratorAssertingClosedScope:
+            def __init__(self, scope: ScopeRecorder) -> None:
+                self._scope = scope
+
+            async def generate(self, question: str, chunks: list[RetrievedChunk]) -> Answer:
+                assert self._scope.currently_open == 0
+                return make_answer(chunks_count=len(chunks))
+
+        scope = ScopeRecorder()
+        knowledge_search = InProcessKnowledgeSearchAdapter(SearchKnowledge(scope.open_retriever))
+        workflow = LangGraphRagWorkflow(
+            knowledge_search,
+            GeneratorAssertingClosedScope(scope),
+            min_relevance_score=0.028,
+        )
+
+        answer = await AskQuestion(workflow).execute("Can I return this?")
+
+        assert len(answer.sources) == 1
 
     async def test_no_relevant_evidence_produces_an_honest_refusal(self) -> None:
         """THE key RAG behavior: better a refusal than a hallucination."""
