@@ -132,6 +132,8 @@ lifecycle and debugging model without solving a missing problem.
 - blocking extraction runs in a worker thread;
 - HTTP clients and the engine are process-owned and closed during lifespan
   shutdown;
+- shutdown keeps closing later resources even when an earlier close fails or
+  the shutdown task is cancelled;
 - retries are bounded and occur only at provider boundaries;
 - cancellation is not converted into success or a fallback answer;
 - no task is launched fire-and-forget inside the web process.

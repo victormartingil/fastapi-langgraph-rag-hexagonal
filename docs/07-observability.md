@@ -17,10 +17,12 @@ instrumentation. Explicit content-safe spans cover:
 - generation, with provider operation metadata;
 - retry, error, latency, and abstention counters.
 
-Every request has an `X-Correlation-ID`. The same value is bound to structured
-logs and attached to the active request span as `correlation.id`, so an
-operator can move from an error response to logs and traces without searching
-for user content.
+Every request has an `X-Correlation-ID`. Caller-provided values are accepted
+only when they match `[A-Za-z0-9._-]` and are 1-128 characters long; otherwise
+the API generates a new UUID. The sanitized value is bound to structured logs,
+echoed in the response header, and attached to the active request span as
+`correlation.id`, so an operator can move from an error response to logs and
+traces without searching for user content.
 
 The GenAI attributes follow the evolving
 [OpenTelemetry GenAI semantic conventions](https://opentelemetry.io/docs/specs/semconv/gen-ai/)
@@ -60,8 +62,26 @@ messages and stack traces are deliberately disabled because they may contain
 filenames, provider payloads, questions, or document fragments. Exporters
 flush during graceful shutdown.
 
+HTTP error logs follow the same rule. Domain errors log the error type, status,
+safe route path, and correlation id, not `str(exc)`. Unexpected exceptions log
+their class and safe route path, not the exception message or traceback. The
+HTTP response may still include the documented client-facing detail for typed
+4xx/5xx domain errors; that is returned to the caller, but it is not copied
+into logs, spans, or metrics by default.
+
 An unavailable collector does not change a RAG response into an application
 error: OTLP exporting is asynchronous and reports export failures through the
 SDK. For regulated deployments, also review collector-side processors,
 retention, access control, and network policy; content-safe application
 attributes do not make an unrestricted telemetry backend safe by themselves.
+
+## Residual debugging trade-off
+
+This project optimizes the default path for safe public demos and regulated
+starting points: enough metadata to correlate and classify failures, but no
+prompt, question, title, filename, chunk text, or generated answer in telemetry.
+That means some production incidents require reproducing the request with a
+local fixture or temporarily enabling a deployment-specific secure capture
+process outside the default logger. Do not enable blanket prompt logging as a
+shortcut; if a deployment needs content capture, make it explicit, access
+controlled, time limited, and documented in its own threat model.
