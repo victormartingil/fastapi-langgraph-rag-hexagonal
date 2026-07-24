@@ -45,20 +45,33 @@ jobs:
 
       - name: Start Ollama
         run: |
+          eval_mode="${{ github.event.inputs.mode || 'live-retrieval' }}"
+          llm_model="${{ github.event.inputs['llm-model'] || 'qwen3.5:9b' }}"
           docker compose up -d ollama
+          ready=0
+          for _ in $(seq 1 60); do
+            if docker compose exec -T ollama ollama list >/dev/null 2>&1; then
+              ready=1
+              break
+            fi
+            sleep 2
+          done
+          test "$ready" = "1"
           docker compose exec -T ollama ollama pull nomic-embed-text
-          if [ "${{ inputs.mode || 'live-retrieval' }}" = "live-full" ]; then
-            docker compose exec -T ollama ollama pull "${{ inputs.llm-model || 'qwen3.5:9b' }}"
+          if [ "$eval_mode" = "live-full" ]; then
+            docker compose exec -T ollama ollama pull "$llm_model"
           fi
 
       - name: Run live RAG evaluation
         env:
           TESTCONTAINERS_RYUK_DISABLED: "true"
         run: |
+          eval_mode="${{ github.event.inputs.mode || 'live-retrieval' }}"
+          llm_model="${{ github.event.inputs['llm-model'] || 'qwen3.5:9b' }}"
           mkdir -p eval-artifacts
           uv run --locked --python 3.14 python -m knowledge_assistant.evaluation.runner \
-            --mode "${{ inputs.mode || 'live-retrieval' }}" \
-            --llm-model "${{ inputs.llm-model || 'qwen3.5:9b' }}" \
+            --mode "$eval_mode" \
+            --llm-model "$llm_model" \
             --baseline evals/live-baseline-qwen3.5-9b.json \
             --output eval-artifacts/report.json
 
