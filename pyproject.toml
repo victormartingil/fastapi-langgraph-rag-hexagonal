@@ -1,6 +1,6 @@
 [project]
 name = "fastapi-langgraph-rag-hexagonal"
-version = "1.0.0"
+version = "1.1.0"
 description = "A didactic, production-shaped RAG API: FastAPI + LangGraph + PostgreSQL/pgvector, built with hexagonal architecture (ports & adapters)."
 readme = "README.md"
 license = "MIT"
@@ -48,6 +48,20 @@ dev = [
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[tool.hatch.build]
+exclude = [
+    "/.coverage",
+    "/.import_linter_cache",
+    "/.mypy_cache",
+    "/.pytest_cache",
+    "/.ruff_cache",
+    "/.tmp",
+    "/.venv",
+    "/build",
+    "/dist",
+    "/htmlcov",
+]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/knowledge_assistant"]
