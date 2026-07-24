@@ -10,26 +10,35 @@ Run the deterministic lexical baseline:
 uv run --locked python -m knowledge_assistant.evaluation.runner
 ```
 
-Compare lexical, dense, and reciprocal-rank-fused hybrid retrieval using a
-live Ollama embedding model:
+Run the live retrieval pipeline. This starts an ephemeral pgvector database
+with Testcontainers, applies Alembic, seeds the corpus with deterministic
+document/chunk IDs, uses the real chunker and Ollama embeddings, then compares
+the real SQL strategies (`dense`, `lexical`, `hybrid`):
 
 ```bash
+TESTCONTAINERS_RYUK_DISABLED=true \
 uv run --locked python -m knowledge_assistant.evaluation.runner \
-  --ollama-url http://localhost:11434 \
-  --embedding-model nomic-embed-text
+  --mode live-retrieval \
+  --baseline evals/live-baseline-qwen3.5-9b.json
 ```
 
-With the Docker Compose API running, add end-to-end abstention, citation,
-fact-phrase coverage, and latency p50/p95:
+Run live generation through LangGraph + Ollama:
 
 ```bash
+TESTCONTAINERS_RYUK_DISABLED=true \
 uv run --locked python -m knowledge_assistant.evaluation.runner \
-  --ollama-url http://localhost:11434 \
-  --api-url http://localhost:8000
+  --mode live-full \
+  --llm-model qwen3.5:9b
 ```
 
-The runner writes both `evals/report.json` and `evals/report.md`. It exits
-non-zero when Recall@5 falls more than 5 percentage points or MRR more than
-0.05 below a mode present in `baseline.json`. A metric pass is a regression
-guard, not proof of production quality; inspect failed cases and retune the
-corpus for each real deployment.
+The runner writes both JSON and Markdown reports. It exits non-zero when
+Recall@5 falls more than 5 percentage points or MRR more than 0.05 below a
+mode present in the selected baseline.
+
+The live baseline records that a zero-false-positive relevance threshold on
+this small generic corpus has **0.0 answerable recall**. That is an explicit
+quality finding, not a hidden failure: for real deployments, calibrate the
+threshold against a representative corpus instead of copying this value.
+
+A metric pass is a regression guard, not proof of production quality; inspect
+failed cases and retune the corpus for each real deployment.

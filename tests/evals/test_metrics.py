@@ -10,7 +10,7 @@ from knowledge_assistant.evaluation.metrics import (
     percentile,
     recall_at_k,
 )
-from knowledge_assistant.evaluation.runner import _assert_baseline
+from knowledge_assistant.evaluation.runner import _assert_baseline, _calibrate_relevance_threshold
 
 pytestmark = pytest.mark.eval
 
@@ -74,3 +74,28 @@ def test_regression_thresholds_allow_boundary_and_reject_larger_drop() -> None:
             {"retrieval": {"hybrid": {"recall_at_5": 0.9, "mrr": 0.749}}},
             baseline,
         )
+
+
+def test_regression_thresholds_accept_nested_runner_reports() -> None:
+    baseline = {"retrieval": {"metrics": {"hybrid": {"recall_at_5": 1.0, "mrr": 0.95}}}}
+
+    _assert_baseline(
+        {"retrieval": {"metrics": {"hybrid": {"recall_at_5": 0.95, "mrr": 0.9}}}},
+        baseline,
+    )
+
+
+def test_relevance_calibration_prefers_zero_false_positives() -> None:
+    result = _calibrate_relevance_threshold(
+        [
+            ExpectedCase("answerable", True, frozenset({"policy"})),
+            ExpectedCase("irrelevant", False, frozenset()),
+        ],
+        {
+            "answerable": [("policy", 0.031), ("other", 0.02)],
+            "irrelevant": [("other", 0.03)],
+        },
+    )
+
+    assert result["false_positives"] == 0
+    assert result["answerable_recall"] == 1.0

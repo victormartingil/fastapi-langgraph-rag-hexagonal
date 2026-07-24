@@ -1,19 +1,48 @@
-"""CLI benchmark for lexical, live dense, hybrid, and end-to-end API quality."""
+"""RAG evaluation CLI, intentionally separate from deterministic tests.
+
+Modes:
+
+- ``deterministic``: offline lexical baseline for fast CI.
+- ``live-retrieval``: real chunker, Ollama embeddings, PostgreSQL/pgvector,
+  dense SQL, FTS SQL and hybrid RRF SQL.
+- ``live-full``: live retrieval plus LangGraph grading and Ollama generation.
+
+Reports store metrics and case ids only. Prompts, chunks and generated text
+stay out of artifacts by default.
+"""
 
 from __future__ import annotations
 
 import argparse
 import asyncio
+import hashlib
 import json
-import math
+import os
 import re
+import shutil
+import subprocess
+import sys
 import time
-from collections.abc import Mapping, Sequence
+import uuid
+from collections.abc import AsyncIterator, Iterable, Mapping, Sequence
+from contextlib import asynccontextmanager
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal, cast
 
 import httpx
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from knowledge_assistant.assistant.adapters.outbound.knowledge.in_process import (
+    InProcessKnowledgeSearchAdapter,
+)
+from knowledge_assistant.assistant.adapters.outbound.llm.pydantic_ai import (
+    PydanticAiAnswerGenerator,
+)
+from knowledge_assistant.assistant.adapters.outbound.orchestration.langgraph.builder import (
+    LangGraphRagWorkflow,
+)
+from knowledge_assistant.assistant.application.ask import AskQuestion
 from knowledge_assistant.evaluation.metrics import (
     AnswerObservation,
     ExpectedCase,
@@ -24,19 +53,43 @@ from knowledge_assistant.evaluation.metrics import (
     percentile,
     recall_at_k,
 )
+from knowledge_assistant.knowledge_base.adapters.outbound.embeddings.ollama import (
+    OllamaEmbeddingProvider,
+)
+from knowledge_assistant.knowledge_base.adapters.outbound.persistence.repository import (
+    SqlAlchemyDocumentRepository,
+)
+from knowledge_assistant.knowledge_base.adapters.outbound.retrieval.pgvector import (
+    PgVectorRetriever,
+)
+from knowledge_assistant.knowledge_base.application.ports import RetrievalStrategy
+from knowledge_assistant.knowledge_base.application.queries import SearchKnowledge
+from knowledge_assistant.knowledge_base.domain.chunking import chunk_text
+from knowledge_assistant.knowledge_base.domain.models import Chunk, Document
+from knowledge_assistant.knowledge_base.domain.value_objects import ChunkText, DocumentId
+from knowledge_assistant.platform.database.session import (
+    create_engine,
+    create_session_factory,
+    session_scope,
+)
 
+PROJECT_ROOT = Path(__file__).resolve().parents[3]
+DEFAULT_PGVECTOR_IMAGE = (
+    "pgvector/pgvector:0.8.1-pg16@"
+    "sha256:33198da2828a14c30348d2ccb4750833d5ed9a44c88d840a0e523d7417120337"
+)
+EVAL_NAMESPACE = uuid.UUID("12b02b69-69c4-5f1a-b560-5ad861c1d661")
 TOKEN_PATTERN = re.compile(r"[^\W_]+", re.UNICODE)
+EvalMode = Literal["deterministic", "live-retrieval", "live-full"]
 
 
-def _tokens(text: str) -> set[str]:
-    return {token.casefold() for token in TOKEN_PATTERN.findall(text)}
-
-
-def _cosine(left: Sequence[float], right: Sequence[float]) -> float:
-    numerator = sum(a * b for a, b in zip(left, right, strict=True))
-    left_norm = math.sqrt(sum(value * value for value in left))
-    right_norm = math.sqrt(sum(value * value for value in right))
-    return numerator / (left_norm * right_norm) if left_norm and right_norm else 0.0
+@dataclass(frozen=True, slots=True)
+class EvaluationEnvironment:
+    mode: EvalMode
+    embedding_model: str
+    llm_model: str | None
+    ollama_url: str | None
+    pgvector_image: str | None
 
 
 def lexical_rank(question: str, documents: Sequence[Mapping[str, Any]]) -> list[str]:
@@ -55,24 +108,8 @@ def lexical_rank(question: str, documents: Sequence[Mapping[str, Any]]) -> list[
     ]
 
 
-def reciprocal_rank_fusion(rankings: Sequence[Sequence[str]], rrf_k: int = 60) -> list[str]:
-    scores: dict[str, float] = {}
-    for ranking in rankings:
-        for rank, document_id in enumerate(ranking, start=1):
-            scores[document_id] = scores.get(document_id, 0.0) + 1 / (rrf_k + rank)
-    return [
-        document_id
-        for document_id, _ in sorted(scores.items(), key=lambda item: (-item[1], item[0]))
-    ]
-
-
-async def _ollama_embeddings(
-    client: httpx.AsyncClient, texts: Sequence[str], model: str
-) -> list[list[float]]:
-    response = await client.post("/api/embed", json={"model": model, "input": list(texts)})
-    response.raise_for_status()
-    payload = response.json()
-    return [[float(value) for value in vector] for vector in payload["embeddings"]]
+def _tokens(text: str) -> set[str]:
+    return {token.casefold() for token in TOKEN_PATTERN.findall(text)}
 
 
 def _load_dataset(path: Path) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
@@ -85,15 +122,16 @@ def _expected(cases: Sequence[Mapping[str, Any]]) -> list[ExpectedCase]:
         ExpectedCase(
             case_id=str(case["id"]),
             answerable=bool(case["answerable"]),
-            relevant_documents=frozenset(case["relevant_documents"]),
-            expected_facts=tuple(case.get("expected_facts", ())),
+            relevant_documents=frozenset(str(item) for item in case["relevant_documents"]),
+            expected_facts=tuple(str(fact) for fact in case.get("expected_facts", ())),
         )
         for case in cases
     ]
 
 
 def _retrieval_metrics(
-    cases: Sequence[ExpectedCase], rankings: Mapping[str, Sequence[str]]
+    cases: Sequence[ExpectedCase],
+    rankings: Mapping[str, Sequence[str]],
 ) -> dict[str, float]:
     return {
         "recall_at_5": recall_at_k(cases, rankings, 5),
@@ -101,86 +139,188 @@ def _retrieval_metrics(
     }
 
 
-async def _evaluate_retrieval(
+def _case_retrieval_results(
+    cases: Sequence[ExpectedCase],
+    rankings: Mapping[str, Sequence[str]],
+) -> list[dict[str, object]]:
+    by_id = {case.case_id: case for case in cases}
+    return [
+        {
+            "case_id": case_id,
+            "answerable": by_id[case_id].answerable,
+            "found_relevant": bool(by_id[case_id].relevant_documents.intersection(ranking[:5])),
+            "ranked_documents": list(ranking[:5]),
+        }
+        for case_id, ranking in sorted(rankings.items())
+    ]
+
+
+def _evaluate_deterministic_retrieval(
     documents: list[dict[str, Any]],
     cases: list[dict[str, Any]],
-    ollama_url: str | None,
-    embedding_model: str,
-) -> dict[str, dict[str, float]]:
-    lexical = {str(case["id"]): lexical_rank(str(case["question"]), documents) for case in cases}
-    result = {"lexical": _retrieval_metrics(_expected(cases), lexical)}
-    if ollama_url is None:
-        return result
-
-    async with httpx.AsyncClient(base_url=ollama_url, timeout=120) as client:
-        document_vectors = await _ollama_embeddings(
-            client, [str(document["text"]) for document in documents], embedding_model
-        )
-        question_vectors = await _ollama_embeddings(
-            client, [str(case["question"]) for case in cases], embedding_model
-        )
-    dense: dict[str, list[str]] = {}
-    hybrid: dict[str, list[str]] = {}
-    for case, query_vector in zip(cases, question_vectors, strict=True):
-        ranked = sorted(
-            zip(documents, document_vectors, strict=True),
-            key=lambda pair: (
-                -_cosine(query_vector, pair[1]),
-                str(pair[0]["id"]),
-            ),
-        )
-        case_id = str(case["id"])
-        dense[case_id] = [str(document["id"]) for document, _ in ranked]
-        hybrid[case_id] = reciprocal_rank_fusion([dense[case_id], lexical[case_id]])
+) -> dict[str, object]:
     expected = _expected(cases)
-    result["dense"] = _retrieval_metrics(expected, dense)
-    result["hybrid"] = _retrieval_metrics(expected, hybrid)
-    return result
+    rankings = {str(case["id"]): lexical_rank(str(case["question"]), documents) for case in cases}
+    return {
+        "metrics": {"lexical": _retrieval_metrics(expected, rankings)},
+        "cases": {"lexical": _case_retrieval_results(expected, rankings)},
+    }
 
 
-async def _evaluate_api(
-    api_url: str,
+async def _evaluate_live_retrieval(
+    documents: list[dict[str, Any]],
+    cases: list[dict[str, Any]],
+    *,
+    ollama_url: str,
+    embedding_model: str,
+    pgvector_image: str,
+) -> dict[str, object]:
+    async with (
+        _live_database(pgvector_image) as session_factory,
+        httpx.AsyncClient(base_url=ollama_url, timeout=180) as client,
+    ):
+        embedding_provider = OllamaEmbeddingProvider(client, embedding_model, max_retries=2)
+        await _ingest_documents(
+            session_factory,
+            embedding_provider,
+            documents,
+        )
+        return await _evaluate_pgvector_strategies(
+            session_factory,
+            embedding_provider,
+            documents,
+            cases,
+        )
+
+
+async def _evaluate_pgvector_strategies(
+    session_factory: async_sessionmaker[AsyncSession],
+    embedding_provider: OllamaEmbeddingProvider,
+    documents: list[dict[str, Any]],
+    cases: list[dict[str, Any]],
+) -> dict[str, object]:
+    expected = _expected(cases)
+    title_to_dataset_id = {str(document["title"]): str(document["id"]) for document in documents}
+    all_rankings: dict[str, dict[str, list[str]]] = {}
+    hybrid_hits: dict[str, list[tuple[str, float]]] = {}
+    for strategy in RetrievalStrategy:
+        rankings: dict[str, list[str]] = {}
+        async with session_scope(session_factory) as session:
+            retriever = PgVectorRetriever(session, embedding_provider)
+            for case in cases:
+                hits = await retriever.retrieve(
+                    str(case["question"]),
+                    limit=5,
+                    strategy=strategy,
+                )
+                case_id = str(case["id"])
+                rankings[case_id] = _unique_document_ids(
+                    title_to_dataset_id.get(hit.document_title, "<unknown>") for hit in hits
+                )
+                if strategy == RetrievalStrategy.HYBRID:
+                    hybrid_hits[case_id] = [
+                        (title_to_dataset_id.get(hit.document_title, "<unknown>"), hit.score)
+                        for hit in hits
+                    ]
+        all_rankings[strategy.value] = rankings
+    return {
+        "metrics": {
+            strategy: _retrieval_metrics(expected, rankings)
+            for strategy, rankings in all_rankings.items()
+        },
+        "cases": {
+            strategy: _case_retrieval_results(expected, rankings)
+            for strategy, rankings in all_rankings.items()
+        },
+        "calibration": _calibrate_relevance_threshold(expected, hybrid_hits),
+    }
+
+
+async def _evaluate_live_full(
+    documents: list[dict[str, Any]],
+    cases: list[dict[str, Any]],
+    *,
+    ollama_url: str,
+    embedding_model: str,
+    llm_model: str,
+    pgvector_image: str,
+) -> tuple[dict[str, object], dict[str, float]]:
+    async with (
+        _live_database(pgvector_image) as session_factory,
+        httpx.AsyncClient(base_url=ollama_url, timeout=180) as embedding_client,
+        httpx.AsyncClient(timeout=180) as llm_client,
+    ):
+        embedding_provider = OllamaEmbeddingProvider(
+            embedding_client,
+            embedding_model,
+            max_retries=2,
+        )
+        await _ingest_documents(
+            session_factory,
+            embedding_provider,
+            documents,
+        )
+        retrieval = await _evaluate_pgvector_strategies(
+            session_factory,
+            embedding_provider,
+            documents,
+            cases,
+        )
+        answer_generator = PydanticAiAnswerGenerator(
+            provider="ollama",
+            model_name=llm_model,
+            base_url=f"{ollama_url.rstrip('/')}/v1",
+            api_key="ollama",
+            http_client=llm_client,
+            max_retries=1,
+            output_retries=1,
+        )
+        ask_question = _build_ask_question(
+            session_factory,
+            embedding_provider,
+            answer_generator,
+        )
+        generation = await _evaluate_generation(ask_question, documents, cases)
+    return retrieval, generation
+
+
+def _build_ask_question(
+    session_factory: async_sessionmaker[AsyncSession],
+    embedding_provider: OllamaEmbeddingProvider,
+    answer_generator: PydanticAiAnswerGenerator,
+) -> AskQuestion:
+    @asynccontextmanager
+    async def open_retriever() -> AsyncIterator[PgVectorRetriever]:
+        async with session_scope(session_factory) as session:
+            yield PgVectorRetriever(session, embedding_provider)
+
+    knowledge_search = InProcessKnowledgeSearchAdapter(SearchKnowledge(open_retriever))
+    workflow = LangGraphRagWorkflow(knowledge_search, answer_generator, min_relevance_score=0.028)
+    return AskQuestion(workflow, default_top_k=5)
+
+
+async def _evaluate_generation(
+    ask_question: AskQuestion,
     documents: list[dict[str, Any]],
     cases: list[dict[str, Any]],
 ) -> dict[str, float]:
+    known_documents = frozenset(str(document["id"]) for document in documents)
     title_to_id = {str(document["title"]): str(document["id"]) for document in documents}
-    known_documents = frozenset(title_to_id.values())
     observations: dict[str, AnswerObservation] = {}
-    async with httpx.AsyncClient(base_url=api_url, timeout=180) as client:
-        for document in documents:
-            response = await client.post(
-                "/api/v1/documents",
-                files={
-                    "file": (
-                        f"{document['id']}.txt",
-                        str(document["text"]).encode(),
-                        "text/plain",
-                    )
-                },
-                data={"title": str(document["title"])},
-            )
-            if response.status_code not in {200, 201}:
-                response.raise_for_status()
-        for case in cases:
-            started = time.perf_counter()
-            response = await client.post(
-                "/api/v1/chat",
-                json={"question": str(case["question"]), "top_k": 5},
-            )
-            response.raise_for_status()
-            elapsed_ms = (time.perf_counter() - started) * 1_000
-            payload = response.json()
-            cited = tuple(
-                title_to_id.get(str(source["document_title"]), "<unknown>")
-                for source in payload["sources"]
-            )
-            observations[str(case["id"])] = AnswerObservation(
-                refused=not cited,
-                cited_documents=cited,
-                known_documents=known_documents,
-                answer_text=str(payload["answer"]),
-                latency_ms=elapsed_ms,
-            )
+    for case in cases:
+        started = time.perf_counter()
+        answer = await ask_question.execute(str(case["question"]), top_k=5)
+        elapsed_ms = (time.perf_counter() - started) * 1_000
+        cited = tuple(
+            title_to_id.get(source.document_title, "<unknown>") for source in answer.sources
+        )
+        observations[str(case["id"])] = AnswerObservation(
+            refused=not cited,
+            cited_documents=cited,
+            known_documents=known_documents,
+            answer_text=answer.text,
+            latency_ms=elapsed_ms,
+        )
     expected = _expected(cases)
     values = list(observations.values())
     return {
@@ -192,10 +332,168 @@ async def _evaluate_api(
     }
 
 
+async def _ingest_documents(
+    session_factory: async_sessionmaker[AsyncSession],
+    embedding_provider: OllamaEmbeddingProvider,
+    documents: Sequence[Mapping[str, Any]],
+) -> None:
+    async with session_scope(session_factory) as session:
+        repository = SqlAlchemyDocumentRepository(session)
+        for item in documents:
+            raw_text = str(item["text"])
+            chunk_texts = chunk_text(raw_text)
+            embeddings = await embedding_provider.embed([str(text) for text in chunk_texts])
+            document_id = _stable_document_id(str(item["id"]))
+            await repository.save(
+                Document(
+                    id=document_id,
+                    title=str(item["title"]),
+                    file_name=f"{item['id']}.txt",
+                    raw_text=raw_text,
+                    chunks=tuple(
+                        Chunk(
+                            id=_stable_document_id(str(item["id"]), str(position)),
+                            text=ChunkText(str(text)),
+                            position=position,
+                            embedding=embeddings[position],
+                        )
+                        for position, text in enumerate(chunk_texts)
+                    ),
+                    content_hash=hashlib.sha256(raw_text.encode("utf-8")).hexdigest(),
+                )
+            )
+
+
+def _stable_document_id(*parts: str) -> DocumentId:
+    return DocumentId(
+        uuid.uuid5(
+            EVAL_NAMESPACE,
+            ":".join(parts),
+        )
+    )
+
+
+@asynccontextmanager
+async def _live_database(
+    image: str,
+) -> AsyncIterator[async_sessionmaker[AsyncSession]]:
+    from testcontainers.postgres import PostgresContainer
+
+    with PostgresContainer(image) as postgres:
+        host = postgres.get_container_host_ip()
+        port = postgres.get_exposed_port(5432)
+        database_url = (
+            f"postgresql+asyncpg://{postgres.username}:{postgres.password}"
+            f"@{host}:{port}/{postgres.dbname}"
+        )
+        _run_migrations(database_url)
+        engine = create_engine(database_url)
+        try:
+            yield create_session_factory(engine)
+        finally:
+            await engine.dispose()
+
+
+def _run_migrations(database_url: str) -> None:
+    alembic = shutil.which("alembic") or str(Path(sys.executable).parent / "alembic")
+    env = {**os.environ, "KA_DATABASE_URL": database_url}
+    try:
+        subprocess.run(
+            [alembic, "upgrade", "head"],
+            cwd=PROJECT_ROOT,
+            env=env,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+    except subprocess.CalledProcessError as exc:
+        raise RuntimeError(
+            f"Alembic migrations failed against evaluation database:\n{exc.stdout}\n{exc.stderr}"
+        ) from exc
+
+
+def _unique_document_ids(document_ids: Iterable[str]) -> list[str]:
+    seen: set[str] = set()
+    unique: list[str] = []
+    for document_id in document_ids:
+        value = str(document_id)
+        if value not in seen:
+            seen.add(value)
+            unique.append(value)
+    return unique
+
+
+def _calibrate_relevance_threshold(
+    cases: Sequence[ExpectedCase],
+    hybrid_hits: Mapping[str, Sequence[tuple[str, float]]],
+) -> dict[str, object]:
+    all_scores = {score for hits in hybrid_hits.values() for _, score in hits}
+    unanswerable_scores = {
+        score
+        for case in cases
+        if not case.answerable
+        for _, score in hybrid_hits.get(case.case_id, ())
+    }
+    # Include the first threshold that is strictly above the strongest
+    # unanswerable hit; otherwise an equality comparison can never produce
+    # zero false positives when the best unanswerable score is itself a
+    # candidate.
+    if unanswerable_scores:
+        all_scores.add(max(unanswerable_scores) + 1e-12)
+    candidate_scores = sorted(all_scores, reverse=True)
+    best: dict[str, object] | None = None
+    for threshold in candidate_scores:
+        false_positives = sum(
+            (not case.answerable)
+            and any(score >= threshold for _, score in hybrid_hits.get(case.case_id, ()))
+            for case in cases
+        )
+        answerable = [case for case in cases if case.answerable]
+        recall = (
+            sum(
+                any(
+                    document_id in case.relevant_documents and score >= threshold
+                    for document_id, score in hybrid_hits.get(case.case_id, ())
+                )
+                for case in answerable
+            )
+            / len(answerable)
+            if answerable
+            else 0.0
+        )
+        candidate: dict[str, object] = {
+            "threshold": threshold,
+            "answerable_recall": recall,
+            "false_positives": false_positives,
+            "meets_minimum_answerable_recall": recall >= 0.85,
+        }
+        if false_positives == 0 and (
+            best is None
+            or recall > cast(float, best["answerable_recall"])
+            or (recall == best["answerable_recall"] and threshold > cast(float, best["threshold"]))
+        ):
+            best = candidate
+    return best or {
+        "threshold": None,
+        "answerable_recall": 0.0,
+        "false_positives": None,
+        "meets_minimum_answerable_recall": False,
+    }
+
+
+def _retrieval_section(report: Mapping[str, Any]) -> Mapping[str, Any]:
+    retrieval = cast(Mapping[str, Any], report["retrieval"])
+    if "metrics" in retrieval:
+        return cast(Mapping[str, Any], retrieval["metrics"])
+    return retrieval
+
+
 def _assert_baseline(report: Mapping[str, Any], baseline: Mapping[str, Any]) -> None:
-    for mode in set(report["retrieval"]).intersection(baseline["retrieval"]):
-        current = report["retrieval"][mode]
-        expected = baseline["retrieval"][mode]
+    current_retrieval = _retrieval_section(report)
+    expected_retrieval = _retrieval_section(baseline)
+    for mode in set(current_retrieval).intersection(expected_retrieval):
+        current = current_retrieval[mode]
+        expected = expected_retrieval[mode]
         if current["recall_at_5"] < expected["recall_at_5"] - 0.05:
             raise SystemExit(f"{mode} Recall@5 regressed by more than 5 percentage points")
         if current["mrr"] < expected["mrr"] - 0.05:
@@ -206,53 +504,124 @@ def _markdown_report(report: Mapping[str, Any]) -> str:
     lines = [
         "# RAG evaluation report",
         "",
+        f"- Mode: {report['environment']['mode']}",
         f"- Documents: {report['dataset']['documents']}",
         f"- Cases: {report['dataset']['cases']}",
+        f"- Embedding model: {report['environment']['embedding_model']}",
+        f"- LLM model: {report['environment'].get('llm_model') or 'not used'}",
         "",
         "## Retrieval",
         "",
         "| Mode | Recall@5 | MRR |",
         "| --- | ---: | ---: |",
     ]
-    for mode, metrics in report["retrieval"].items():
+    for mode, metrics in _retrieval_section(report).items():
         lines.append(f"| {mode} | {metrics['recall_at_5']:.3f} | {metrics['mrr']:.3f} |")
     if "generation" in report:
         lines.extend(["", "## Generation", ""])
         lines.extend(f"- {name}: {value:.3f}" for name, value in report["generation"].items())
+    calibration = report["retrieval"].get("calibration")
+    if calibration:
+        lines.extend(
+            [
+                "",
+                "## Retrieval threshold calibration",
+                "",
+                f"- threshold: {calibration['threshold']}",
+                f"- answerable recall: {calibration['answerable_recall']:.3f}",
+                f"- false positives: {calibration['false_positives']}",
+            ]
+        )
     lines.extend(
         [
             "",
-            "The live modes are non-deterministic. Compare changes against the",
-            "versioned baseline and inspect case-level failures before accepting them.",
+            "Live modes are infrastructure- and model-dependent. Treat regressions",
+            "as review gates, then inspect case-level failures before accepting them.",
             "",
         ]
     )
     return "\n".join(lines)
 
 
-async def _main() -> None:
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--dataset", type=Path, default=Path("evals/dataset.json"))
-    parser.add_argument("--baseline", type=Path, default=Path("evals/baseline.json"))
-    parser.add_argument("--ollama-url")
-    parser.add_argument("--embedding-model", default="nomic-embed-text")
-    parser.add_argument("--api-url")
-    parser.add_argument("--output", type=Path, default=Path("evals/report.json"))
-    args = parser.parse_args()
-
+async def _build_report(args: argparse.Namespace) -> dict[str, Any]:
     documents, cases = _load_dataset(args.dataset)
-    retrieval = await _evaluate_retrieval(documents, cases, args.ollama_url, args.embedding_model)
+    mode = cast(EvalMode, args.mode)
+    environment = EvaluationEnvironment(
+        mode=mode,
+        embedding_model=args.embedding_model,
+        llm_model=args.llm_model if mode == "live-full" else None,
+        ollama_url=args.ollama_url if mode != "deterministic" else None,
+        pgvector_image=args.pgvector_image if mode != "deterministic" else None,
+    )
+    generation: dict[str, float] | None = None
+    if mode == "deterministic":
+        retrieval = _evaluate_deterministic_retrieval(documents, cases)
+    elif mode == "live-retrieval":
+        retrieval = await _evaluate_live_retrieval(
+            documents,
+            cases,
+            ollama_url=args.ollama_url,
+            embedding_model=args.embedding_model,
+            pgvector_image=args.pgvector_image,
+        )
+    else:
+        retrieval, generation = await _evaluate_live_full(
+            documents,
+            cases,
+            ollama_url=args.ollama_url,
+            embedding_model=args.embedding_model,
+            llm_model=args.llm_model,
+            pgvector_image=args.pgvector_image,
+        )
     report: dict[str, Any] = {
         "dataset": {
             "documents": len(documents),
             "cases": len(cases),
+            "version": json.loads(args.dataset.read_text()).get("version"),
+        },
+        "environment": {
+            "mode": environment.mode,
+            "embedding_model": environment.embedding_model,
+            "llm_model": environment.llm_model,
+            "ollama_url": environment.ollama_url,
+            "pgvector_image": environment.pgvector_image,
         },
         "retrieval": retrieval,
     }
-    if args.api_url:
-        report["generation"] = await _evaluate_api(args.api_url, documents, cases)
-    if args.baseline.exists():
-        _assert_baseline(report, json.loads(args.baseline.read_text()))
+    if generation is not None:
+        report["generation"] = generation
+    return report
+
+
+async def _main() -> None:
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--mode",
+        choices=("deterministic", "live-retrieval", "live-full"),
+        default="deterministic",
+    )
+    parser.add_argument("--dataset", type=Path, default=Path("evals/dataset.json"))
+    parser.add_argument(
+        "--baseline",
+        type=Path,
+        help=(
+            "Baseline JSON to compare against. Defaults to evals/baseline.json "
+            "only in deterministic mode; live baselines must be passed explicitly."
+        ),
+    )
+    parser.add_argument("--ollama-url", default="http://localhost:11434")
+    parser.add_argument("--embedding-model", default="nomic-embed-text")
+    parser.add_argument("--llm-model", default="qwen3.5:9b")
+    parser.add_argument("--pgvector-image", default=DEFAULT_PGVECTOR_IMAGE)
+    parser.add_argument("--output", type=Path, default=Path("evals/report.json"))
+    args = parser.parse_args()
+
+    report = await _build_report(args)
+    baseline = args.baseline or (
+        Path("evals/baseline.json") if args.mode == "deterministic" else None
+    )
+    if baseline is not None and baseline.exists():
+        _assert_baseline(report, json.loads(baseline.read_text()))
     args.output.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n")
     args.output.with_suffix(".md").write_text(_markdown_report(report))
     print(json.dumps(report, indent=2, sort_keys=True))
