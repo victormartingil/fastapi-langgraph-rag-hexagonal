@@ -43,6 +43,7 @@ from knowledge_assistant.knowledge_base.domain.exceptions import (
     TextExtractionError,
     UnsupportedFileTypeError,
 )
+from knowledge_assistant.platform.http.middleware import safe_route_path
 from knowledge_assistant.shared_kernel.exceptions import DomainError
 
 logger = structlog.get_logger()
@@ -99,7 +100,7 @@ def register_error_handlers(app: FastAPI) -> None:
             "domain_error",
             error=type(exc).__name__,
             status=status,
-            path=request.url.path,
+            path=safe_route_path(request),
             correlation_id=_correlation_id(),
         )
         return JSONResponse(

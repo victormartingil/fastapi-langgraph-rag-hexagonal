@@ -34,6 +34,15 @@ _CORRELATION_ID_PATTERN = re.compile(r"^[A-Za-z0-9._-]{1,128}$")
 logger = structlog.get_logger()
 
 
+def safe_route_path(request: Request) -> str:
+    """Return the framework route pattern instead of the literal URL path."""
+    route = request.scope.get("route")
+    route_path = getattr(route, "path", None)
+    if isinstance(route_path, str):
+        return route_path
+    return "<unmatched>"
+
+
 def resolve_correlation_id(header_value: str | None) -> str:
     """Return a safe correlation id for logs, traces, and response headers."""
     if header_value is not None and _CORRELATION_ID_PATTERN.fullmatch(header_value):
@@ -63,7 +72,7 @@ class CorrelationIdMiddleware(BaseHTTPMiddleware):
             logger.error(
                 "unhandled_exception",
                 exception_type=type(exc).__qualname__,
-                path=request.url.path,
+                path=safe_route_path(request),
                 correlation_id=correlation_id,
             )
             response = JSONResponse(
