@@ -315,9 +315,9 @@ multi-tenant security — JWT/OIDC and rate limiting are Phase 2
 
 ### Pinned stack (resolved by `uv.lock`)
 
-Python 3.12–3.14 (3.14 reference runtime) · FastAPI 0.139 · LangGraph 1.2 · Pydantic AI 2.16 ·
-SQLAlchemy 2.0 (async, asyncpg) · Alembic 1.18 · pgvector 0.5 · Pydantic 2.13 ·
-OpenTelemetry 1.43 · structlog 26 · tenacity 9 · pytest 9 ·
+Python 3.12–3.14 (3.14.6 reference runtime) · FastAPI 0.139.2 · LangGraph 1.2.9 · Pydantic AI 2.17.0 ·
+SQLAlchemy 2.0.51 (async, asyncpg) · Alembic 1.18.5 · pgvector 0.5.0 · Pydantic 2.13.4 ·
+OpenTelemetry 1.44.0 / 0.65b0 · structlog 26.1 · tenacity 9.1 · pytest 9.1 ·
 testcontainers 4.14 · ruff 0.16 · mypy 2.3 · import-linter 2.13
 
 ## Testing
