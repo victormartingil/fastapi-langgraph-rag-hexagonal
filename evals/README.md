@@ -31,6 +31,10 @@ uv run --locked python -m knowledge_assistant.evaluation.runner \
   --llm-model qwen3.5:9b
 ```
 
+`live-full` stores one row per `case_id` with refusal, cited document ids,
+citation validity, fact-phrase coverage and latency. It deliberately does not
+store prompts, chunks, questions or generated answers.
+
 The runner writes both JSON and Markdown reports. It exits non-zero when
 Recall@5 falls more than 5 percentage points or MRR more than 0.05 below a
 mode present in the selected baseline.
