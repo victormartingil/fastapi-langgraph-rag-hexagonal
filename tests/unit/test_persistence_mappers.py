@@ -13,6 +13,7 @@ from knowledge_assistant.knowledge_base.adapters.outbound.persistence.mappers im
 )
 from knowledge_assistant.knowledge_base.domain.models import Chunk, Document
 from knowledge_assistant.knowledge_base.domain.value_objects import (
+    ChunkId,
     ChunkText,
     DocumentId,
     EmbeddingVector,
@@ -21,7 +22,7 @@ from knowledge_assistant.knowledge_base.domain.value_objects import (
 
 def make_chunk(with_embedding: bool = True) -> Chunk:
     return Chunk(
-        id=DocumentId(),
+        id=ChunkId(),
         text=ChunkText("Refunds within 30 days."),
         position=0,
         embedding=EmbeddingVector((0.1, 0.2, 0.3)) if with_embedding else None,

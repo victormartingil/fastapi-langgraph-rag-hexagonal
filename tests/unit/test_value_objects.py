@@ -5,6 +5,7 @@ import uuid
 import pytest
 
 from knowledge_assistant.knowledge_base.domain.value_objects import (
+    ChunkId,
     ChunkText,
     DocumentId,
     EmbeddingVector,
@@ -42,3 +43,19 @@ class TestDocumentId:
     def test_equality_by_value(self) -> None:
         raw = str(uuid.uuid4())
         assert DocumentId.from_string(raw) == DocumentId.from_string(raw)
+
+    def test_document_and_chunk_ids_are_not_interchangeable(self) -> None:
+        raw = str(uuid.uuid4())
+        document_id: object = DocumentId.from_string(raw)
+        chunk_id: object = ChunkId.from_string(raw)
+
+        assert document_id != chunk_id
+
+
+class TestChunkId:
+    def test_generates_unique_ids_by_default(self) -> None:
+        assert ChunkId() != ChunkId()
+
+    def test_from_string_round_trip(self) -> None:
+        raw = str(uuid.uuid4())
+        assert str(ChunkId.from_string(raw)) == raw

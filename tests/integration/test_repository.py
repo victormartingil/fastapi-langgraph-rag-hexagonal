@@ -17,6 +17,7 @@ from knowledge_assistant.knowledge_base.adapters.outbound.persistence.repository
 from knowledge_assistant.knowledge_base.domain.exceptions import DuplicateDocumentError
 from knowledge_assistant.knowledge_base.domain.models import Chunk, Document
 from knowledge_assistant.knowledge_base.domain.value_objects import (
+    ChunkId,
     ChunkText,
     DocumentId,
     EmbeddingVector,
@@ -38,7 +39,7 @@ def make_document(
         raw_text="Refunds are available within 30 days.",
         chunks=tuple(
             Chunk(
-                id=DocumentId(),
+                id=ChunkId(),
                 text=ChunkText(f"Chunk {index} of {title}."),
                 position=index,
                 embedding=EmbeddingVector(tuple([0.01 * (index + 1)] * EMBEDDING_DIM)),
