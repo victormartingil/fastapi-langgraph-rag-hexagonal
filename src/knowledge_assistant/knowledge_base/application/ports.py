@@ -24,6 +24,7 @@ __all__ = [
     "DocumentRepository",
     "EmbeddingProvider",
     "KnowledgeRetriever",
+    "OpenKnowledgeRetriever",
     "OpenRepository",
     "TextExtractor",
 ]
@@ -107,3 +108,10 @@ class KnowledgeRetriever(Protocol):
     async def retrieve(self, question: str, limit: int) -> list[KnowledgeHit]:
         """Return up to ``limit`` hits ranked by relevance."""
         ...
+
+
+# Same unit-of-work pattern as OpenRepository, but for read-side retrieval:
+# each search opens a fresh short-lived retriever scope and closes it after
+# SQL has returned materialized hits. The assistant can then grade/generate
+# without pinning a database connection.
+OpenKnowledgeRetriever = Callable[[], AbstractAsyncContextManager[KnowledgeRetriever]]

@@ -2,7 +2,7 @@
 
 from knowledge_assistant.knowledge_base.application.ports import (
     DocumentRepository,
-    KnowledgeRetriever,
+    OpenKnowledgeRetriever,
 )
 from knowledge_assistant.knowledge_base.application.read_models import (
     DocumentPage,
@@ -41,8 +41,9 @@ class ListDocuments:
 class SearchKnowledge:
     """Public application API for ranked knowledge search."""
 
-    def __init__(self, retriever: KnowledgeRetriever) -> None:
-        self._retriever = retriever
+    def __init__(self, open_retriever: OpenKnowledgeRetriever) -> None:
+        self._open_retriever = open_retriever
 
     async def execute(self, question: str, limit: int) -> list[KnowledgeHit]:
-        return await self._retriever.retrieve(question, limit)
+        async with self._open_retriever() as retriever:
+            return await retriever.retrieve(question, limit)
