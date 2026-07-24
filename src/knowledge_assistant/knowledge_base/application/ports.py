@@ -11,13 +11,13 @@ documents does not know what a database is.
 
 from collections.abc import Callable
 from contextlib import AbstractAsyncContextManager
-from enum import StrEnum
 from typing import Protocol
 
 from knowledge_assistant.knowledge_base.application.read_models import (
     DocumentSummary,
     KnowledgeHit,
 )
+from knowledge_assistant.knowledge_base.application.retrieval import RetrievalStrategy
 from knowledge_assistant.knowledge_base.domain.models import Document
 from knowledge_assistant.knowledge_base.domain.value_objects import DocumentId, EmbeddingVector
 
@@ -102,18 +102,6 @@ class TextExtractor(Protocol):
     def extract(self, file_name: str, data: bytes) -> str:
         """Extract plain text from raw file bytes."""
         ...
-
-
-class RetrievalStrategy(StrEnum):
-    """Supported production retrieval modes.
-
-    The assistant uses `HYBRID`; the evaluator can run the same PostgreSQL
-    adapter in `DENSE` or `LEXICAL` mode to make quality trade-offs explicit.
-    """
-
-    DENSE = "dense"
-    LEXICAL = "lexical"
-    HYBRID = "hybrid"
 
 
 class KnowledgeRetriever(Protocol):

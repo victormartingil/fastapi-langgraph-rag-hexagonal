@@ -20,7 +20,7 @@ from knowledge_assistant.knowledge_base.adapters.outbound.retrieval.pgvector imp
     HYBRID_SEARCH_SQL,
     PgVectorRetriever,
 )
-from knowledge_assistant.knowledge_base.application.ports import RetrievalStrategy
+from knowledge_assistant.knowledge_base.application.retrieval import RetrievalStrategy
 from knowledge_assistant.knowledge_base.domain.models import Chunk, Document
 from knowledge_assistant.knowledge_base.domain.value_objects import (
     ChunkText,

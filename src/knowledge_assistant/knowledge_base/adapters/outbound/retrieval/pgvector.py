@@ -55,11 +55,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from knowledge_assistant.knowledge_base.application.exceptions import (
     KnowledgeBaseUnavailableError,
 )
-from knowledge_assistant.knowledge_base.application.ports import (
-    EmbeddingProvider,
-    RetrievalStrategy,
-)
+from knowledge_assistant.knowledge_base.application.ports import EmbeddingProvider
 from knowledge_assistant.knowledge_base.application.read_models import KnowledgeHit
+from knowledge_assistant.knowledge_base.application.retrieval import RetrievalStrategy
 from knowledge_assistant.knowledge_base.domain.exceptions import (
     EmbeddingProviderUnavailableError,
 )
