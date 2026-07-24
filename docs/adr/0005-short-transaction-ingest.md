@@ -1,11 +1,13 @@
-# ADR-0005: Ingest runs short-lived transactions around, not across, slow work
+# ADR-0005: Slow RAG work uses short database transactions
 
 - **Status**: Accepted
 - **Date**: 2026-07-23
 
 ## Context
 
-Ingestion is a pipeline with two very different speeds:
+Ingestion and chat retrieval both mix fast database work with slower AI work.
+
+Ingestion has two very different speeds:
 
 1. fast, cheap database work — the dedup lookup, the final `INSERT`;
 2. slow, fallible work — text extraction (hundreds of ms of CPU) and the
@@ -24,6 +26,12 @@ Holding an open transaction across slow, fallible work is also a
 correctness smell: a crash mid-embedding leaves an idle-in-transaction
 session behind (until the connection is recycled), and long transactions
 delay vacuum and hold locks they do not need.
+
+Chat has the same failure mode in reverse. Hybrid retrieval is fast SQL, but
+grading and answer generation can wait on a local or remote LLM for seconds.
+If `/chat` keeps a request-scoped session until the HTTP response is fully
+rendered, one pooled connection can remain checked out while the application
+is no longer using PostgreSQL at all.
 
 ## Decision
 
@@ -55,9 +63,22 @@ COMMITTED no matter how the scopes are drawn. The unique index on
 `content_hash` remains the actual arbiter; the race recovery (scope 3) is
 the documented safety net.
 
-Observability: a unit test (`RepositoryScopeRecorder` in tests/unit/fakes.py)
-proves the embedding calls execute with ZERO repository scopes open, so the
-transaction shape cannot silently regress.
+`SearchKnowledge` follows the same rule through `OpenKnowledgeRetriever`: each
+question opens one short retrieval scope, materializes the `KnowledgeHit`
+list, commits/closes the session, and only then returns evidence to the
+assistant context. LangGraph grading and `AnswerGenerator.generate()` run
+after PostgreSQL has been released.
+
+The composition root wires this with `retriever_scope_factory`. `GET` and
+`LIST` endpoints still use the request-scoped session because they perform
+only short SQL reads and do not wait on extraction, embeddings, grading, or
+generation.
+
+Observability: unit tests prove embedding calls execute with zero repository
+scopes open and generation starts after the retrieval scope has closed. An
+integration test runs chat with a database pool of one connection and a
+blocked generator; a second SQL query must still complete while the first
+chat request waits on the LLM.
 
 ## Alternatives considered
 
@@ -75,18 +96,25 @@ transaction shape cannot silently regress.
 - **Raise pool size / add PgBouncer**: treats the symptom. The pool stays
   sized for short transactions; no upload may hold a connection while
   waiting on a third-party HTTP call.
+- **Keep chat retrieval on the request-scoped session because the query is
+  fast**: rejected because the session lifetime is the HTTP request, not the
+  SQL query. A fast query can still leave the connection checked out while
+  answer generation waits.
 
 ## Consequences
 
 - A slow or down embedding provider can no longer exhaust the database
   pool; ingest concurrency is bounded by HTTP timeouts, not connections.
+- A slow or down answer generator can no longer exhaust the database pool
+  after retrieval has already completed.
 - Each scope is independently committed/rolled back: a failed save leaves
   no partial document (chunks cascade in the same transaction), and a
   failed race recovery leaves the (committed or absent) winner untouched.
-- `provide_ingest_document` no longer depends on `provide_session`;
-  `GetDocument`/`ListDocuments`/`AskQuestion` keep the request-scoped
-  session — they perform one fast read each, so a long-lived scope would
-  buy nothing there.
+- `provide_ingest_document` and `provide_ask_question` no longer depend on
+  `provide_session`. `GetDocument` and `ListDocuments` keep the request-scoped
+  session because they perform one fast read each.
 - The use case now opens 2–3 tiny transactions per ingest instead of one
   long one: a negligible overhead (microseconds of pool checkout) against
   seconds of embedding time.
+- Chat opens one tiny transaction per retrieval instead of holding a session
+  until the response finishes.
