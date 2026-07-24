@@ -58,6 +58,8 @@ from knowledge_assistant.knowledge_base.application.ingest import IngestDocument
 from knowledge_assistant.knowledge_base.application.ports import (
     DocumentRepository,
     EmbeddingProvider,
+    KnowledgeRetriever,
+    OpenKnowledgeRetriever,
     OpenRepository,
     TextExtractor,
 )
@@ -346,6 +348,40 @@ def repository_scope_factory(
     return _scope
 
 
+def retriever_scope_factory(
+    session_factory: async_sessionmaker[AsyncSession],
+    embedding_provider: EmbeddingProvider,
+    *,
+    fetch_limit: int,
+    rrf_k: int,
+    tsconfig: str,
+) -> OpenKnowledgeRetriever:
+    """Open a retrieval adapter around one short read-side unit of work.
+
+    Chat may spend most of its time in grading/generation. This factory keeps
+    PostgreSQL scoped to the actual retrieval query, then releases the session
+    before the assistant workflow continues to the LLM (ADR-0005).
+    """
+
+    @asynccontextmanager
+    async def _scope() -> AsyncIterator[KnowledgeRetriever]:
+        try:
+            async with session_scope(session_factory) as session:
+                yield PgVectorHybridRetriever(
+                    session,
+                    embedding_provider,
+                    fetch_limit=fetch_limit,
+                    rrf_k=rrf_k,
+                    tsconfig=tsconfig,
+                )
+        except Exception as exc:
+            if is_db_outage_error(exc):
+                raise KnowledgeBaseUnavailableError() from exc
+            raise
+
+    return _scope
+
+
 def provide_ingest_document(
     container: Annotated[Container, Depends(get_container)],
 ) -> IngestDocument:
@@ -380,23 +416,23 @@ def provide_list_documents(
 
 
 def provide_ask_question(
-    session: Annotated[AsyncSession, Depends(provide_session)],
     container: Annotated[Container, Depends(get_container)],
 ) -> AskQuestion:
     """Assemble the RAG graph for this request.
 
-    The retriever needs the request-scoped session, so the graph is compiled
-    per request — cheap (no I/O), and it keeps the wiring honest.
+    The graph is compiled per request — cheap (no I/O), and it keeps the
+    wiring honest. Retrieval gets a short database scope of its own, so the
+    SQL session is closed before grading/generation can wait on the LLM.
     """
     settings = container.settings
-    retriever = PgVectorHybridRetriever(
-        session,
+    open_retriever = retriever_scope_factory(
+        container.session_factory,
         container.embedding_provider,
         fetch_limit=settings.retrieval_fetch_limit,
         rrf_k=settings.rrf_k,
         tsconfig=settings.fts_language,
     )
-    knowledge_search = InProcessKnowledgeSearchAdapter(SearchKnowledge(retriever))
+    knowledge_search = InProcessKnowledgeSearchAdapter(SearchKnowledge(open_retriever))
     workflow = LangGraphRagWorkflow(
         knowledge_search,
         container.answer_generator,

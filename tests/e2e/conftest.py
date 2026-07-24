@@ -18,7 +18,6 @@ import pytest
 from fastapi import Depends, FastAPI
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import text
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from knowledge_assistant import bootstrap
 from knowledge_assistant.assistant.adapters.outbound.knowledge.in_process import (
@@ -35,9 +34,6 @@ from knowledge_assistant.config import Settings
 from knowledge_assistant.knowledge_base.adapters.outbound.extraction.pdf import PdfTextExtractor
 from knowledge_assistant.knowledge_base.adapters.outbound.extraction.plain_text import (
     PlainTextExtractor,
-)
-from knowledge_assistant.knowledge_base.adapters.outbound.retrieval.pgvector_hybrid import (
-    PgVectorHybridRetriever,
 )
 from knowledge_assistant.knowledge_base.application.ingest import IngestDocument
 from knowledge_assistant.knowledge_base.application.queries import SearchKnowledge
@@ -196,10 +192,16 @@ def _install_dependency_overrides(app: FastAPI) -> None:
         )
 
     def override_provide_ask_question(
-        session: Annotated[AsyncSession, Depends(bootstrap.provide_session)],
+        container: Annotated[Container, Depends(bootstrap.get_container)],
     ) -> AskQuestion:
-        retriever = PgVectorHybridRetriever(session, fake_embeddings)
-        knowledge_search = InProcessKnowledgeSearchAdapter(SearchKnowledge(retriever))
+        open_retriever = bootstrap.retriever_scope_factory(
+            container.session_factory,
+            fake_embeddings,
+            fetch_limit=container.settings.retrieval_fetch_limit,
+            rrf_k=container.settings.rrf_k,
+            tsconfig=container.settings.fts_language,
+        )
+        knowledge_search = InProcessKnowledgeSearchAdapter(SearchKnowledge(open_retriever))
         workflow = LangGraphRagWorkflow(
             knowledge_search, ScriptedAnswerGenerator(), min_relevance_score=0.028
         )
