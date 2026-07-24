@@ -331,7 +331,7 @@ Five deterministic suites with different responsibilities — full rationale in
 | architecture | 3 | No | import contracts, context ownership, port/adapter conventions |
 | integration | 18 | Yes | migrations, ORM, PostgreSQL/pgvector SQL, index plan, multilingual FTS |
 | E2E | 31 | Yes | complete HTTP journeys, wiring, grounding, failures, probes, auth |
-| eval | 6 | No | dataset validity, metric calculations, regression thresholds |
+| eval | 8 | No | dataset validity, metric calculations, regression thresholds |
 
 The 80% coverage gate applies to domain+application under the unit suite —
 currently **100%**. The AI adapters (embeddings, LLM) are unit-tested with
@@ -343,12 +343,22 @@ against real infrastructure, where coverage is meaningful.
 Model quality is not treated as a unit test. The separate
 [`evals/`](evals/) harness contains a versioned 30-case corpus, deterministic
 metric tests, lexical baseline, optional live Ollama dense/hybrid comparison,
-and optional full-API generation evaluation.
+and optional live LangGraph+Ollama generation evaluation.
 
 The committed lexical baseline is **Recall@5 0.864 / MRR 0.787**. Regression
 gates allow at most a 5 percentage-point Recall@5 drop or 0.05 MRR drop.
-Live reports additionally measure abstention accuracy, citation validity,
-expected fact-phrase coverage, and latency p50/p95.
+The committed live PostgreSQL+Ollama retrieval baseline for
+`nomic-embed-text` is:
+
+| Strategy | Recall@5 | MRR |
+| --- | ---: | ---: |
+| dense | 1.000 | 1.000 |
+| lexical | 0.864 | 0.856 |
+| hybrid | 1.000 | 0.955 |
+
+`live-full` additionally measures abstention accuracy, citation validity,
+expected fact-phrase coverage, and latency p50/p95. Citation validity checks
+that a citation points to a known source; it does not prove entailment.
 
 CI runs Ruff, mypy strict, deterministic evals, dependency audit, wheel/sdist
 fresh-install checks, a Python 3.12–3.14 matrix, and integration/E2E on every
@@ -383,7 +393,7 @@ e.g. `feat(chat): add grading node`.
 1. ADRs [0001](docs/adr/0001-pgvector-as-vector-store.md) /
    [0002](docs/adr/0002-langgraph-as-orchestration-adapter.md) /
    [0003](docs/adr/0003-hybrid-retrieval.md) — argue with them.
-2. The RRF SQL in `knowledge_base/adapters/outbound/retrieval/pgvector_hybrid.py` and its
+2. The RRF SQL in `knowledge_base/adapters/outbound/retrieval/pgvector.py` and its
    integration tests.
 3. [Bounded-context ownership](docs/08-bounded-context-ownership.md) and
    [evolution without a rewrite](docs/10-evolution.md).
