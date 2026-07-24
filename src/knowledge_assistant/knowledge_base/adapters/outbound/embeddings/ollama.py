@@ -63,7 +63,7 @@ class OllamaEmbeddingProvider:
                 "gen_ai.operation.name": "embeddings",
                 "gen_ai.provider.name": "ollama",
                 "gen_ai.request.model": self._model,
-                "gen_ai.request.input.count": len(texts),
+                "rag.embedding.input.count": len(texts),
             },
         ):
             try:

@@ -71,7 +71,7 @@ def make_generate_node(generator: AnswerGenerator) -> Node:
         with observe_operation(
             "generation",
             {
-                "gen_ai.operation.name": "generate_content",
+                "gen_ai.operation.name": "chat",
                 "rag.evidence.count": len(chunks),
             },
         ):
