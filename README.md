@@ -163,7 +163,9 @@ Deep dives: [RAG](docs/02-rag-explained.md) ·
 [testing/evals](docs/04-testing-strategy.md) ·
 [threat model](docs/06-threat-model.md) ·
 [observability](docs/07-observability.md) ·
-[evolution](docs/10-evolution.md) · [ADRs](docs/adr/).
+[evolution](docs/10-evolution.md) ·
+[quality reference](docs/12-quality-reference.md) ·
+[ADRs](docs/adr/).
 
 ## Project layout
 
@@ -360,7 +362,10 @@ The committed live PostgreSQL+Ollama retrieval baseline for
 
 `live-full` additionally measures abstention accuracy, citation validity,
 expected fact-phrase coverage, and latency p50/p95. Citation validity checks
-that a citation points to a known source; it does not prove entailment.
+that a citation points to a known source; it does not prove entailment. See
+the [quality reference](docs/12-quality-reference.md) for the July 24, 2026
+PostgreSQL+Ollama verification snapshot, model matrix, and failure-reading
+guide.
 
 CI runs Ruff, mypy strict, deterministic evals, dependency audit, wheel/sdist
 fresh-install checks, a Python 3.12–3.14 matrix, and integration/E2E on every
@@ -414,6 +419,8 @@ This is a reference architecture, not a turnkey multi-tenant product:
 - prompt injection risk is reduced, never claimed solved;
 - the bundled evaluation corpus proves the harness, not quality on a private
   corpus;
+- the default local LLM is selected for reproducible demos, not maximum answer
+  quality;
 - LangGraph has no checkpointer because there is no memory, approval, or
   recoverable long-running workflow requirement yet.
 
