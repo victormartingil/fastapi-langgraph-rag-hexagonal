@@ -30,6 +30,7 @@ from knowledge_assistant.knowledge_base.adapters.outbound.retrieval.pgvector imp
 )
 from knowledge_assistant.knowledge_base.domain.models import Chunk, Document
 from knowledge_assistant.knowledge_base.domain.value_objects import (
+    ChunkId,
     ChunkText,
     DocumentId,
     EmbeddingVector,
@@ -88,7 +89,7 @@ def vector(fill: float) -> EmbeddingVector:
 
 
 def make_chunk(content: str, position: int, embedding: EmbeddingVector) -> Chunk:
-    return Chunk(id=DocumentId(), text=ChunkText(content), position=position, embedding=embedding)
+    return Chunk(id=ChunkId(), text=ChunkText(content), position=position, embedding=embedding)
 
 
 @pytest.fixture
