@@ -1,6 +1,6 @@
 """Unit tests for retriever outage translation (adapter -> application signal).
 
-PgVectorHybridRetriever sits at the port boundary: like the repository
+PgVectorRetriever sits at the port boundary: like the repository
 translating IntegrityError into DuplicateDocumentError, it translates
 TRANSIENT infrastructure failures (embedding provider down, database
 unreachable) into KnowledgeBaseUnavailableError, which the HTTP layer maps to
@@ -15,8 +15,8 @@ import pytest
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from knowledge_assistant.knowledge_base.adapters.outbound.retrieval.pgvector_hybrid import (
-    PgVectorHybridRetriever,
+from knowledge_assistant.knowledge_base.adapters.outbound.retrieval.pgvector import (
+    PgVectorRetriever,
 )
 from knowledge_assistant.knowledge_base.application.exceptions import (
     KnowledgeBaseUnavailableError,
@@ -54,7 +54,7 @@ def make_retriever(
     *,
     provider_error: Exception | None = None,
     session_error: Exception | None = None,
-) -> PgVectorHybridRetriever:
+) -> PgVectorRetriever:
     provider = (
         DownEmbeddingProvider(provider_error)
         if provider_error is not None
@@ -67,7 +67,7 @@ def make_retriever(
     )
     # The stub quacks like the one method the retriever calls; the cast keeps
     # mypy honest without dragging a real engine into the unit tier.
-    return PgVectorHybridRetriever(cast("AsyncSession", session), provider)
+    return PgVectorRetriever(cast("AsyncSession", session), provider)
 
 
 class TestProviderOutageTranslation:

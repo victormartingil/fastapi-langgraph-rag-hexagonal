@@ -25,8 +25,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from knowledge_assistant.knowledge_base.adapters.outbound.persistence.repository import (
     SqlAlchemyDocumentRepository,
 )
-from knowledge_assistant.knowledge_base.adapters.outbound.retrieval.pgvector_hybrid import (
-    PgVectorHybridRetriever,
+from knowledge_assistant.knowledge_base.adapters.outbound.retrieval.pgvector import (
+    PgVectorRetriever,
 )
 from knowledge_assistant.knowledge_base.domain.models import Chunk, Document
 from knowledge_assistant.knowledge_base.domain.value_objects import (
@@ -128,7 +128,7 @@ class TestSpanishFullTextSearch:
         product' — all present in the policy chunk's Spanish tsvector. With the
         dense leg also close, the chunk must fuse from BOTH legs."""
         embedding_provider = FakeEmbeddingProvider(dimension=DIM, fill=0.5)
-        retriever = PgVectorHybridRetriever(
+        retriever = PgVectorRetriever(
             seeded_spanish_session, embedding_provider, tsconfig="spanish"
         )
 
@@ -147,7 +147,7 @@ class TestSpanishFullTextSearch:
         """'el la un de' are all Spanish stopwords: the tsquery is EMPTY, the
         FTS leg returns nothing, and retrieval is pure dense — by design."""
         embedding_provider = FakeEmbeddingProvider(dimension=DIM, fill=0.5)
-        retriever = PgVectorHybridRetriever(
+        retriever = PgVectorRetriever(
             seeded_spanish_session, embedding_provider, tsconfig="spanish"
         )
 

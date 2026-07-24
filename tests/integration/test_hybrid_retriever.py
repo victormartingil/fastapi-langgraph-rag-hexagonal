@@ -1,4 +1,4 @@
-"""Integration tests: PgVectorHybridRetriever against real pgvector.
+"""Integration tests: PgVectorRetriever against real pgvector.
 
 This is the heart of the read side, tested where it can only be tested:
 against a real database. We insert three chunks with hand-crafted vectors and
@@ -16,10 +16,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from knowledge_assistant.knowledge_base.adapters.outbound.persistence.repository import (
     SqlAlchemyDocumentRepository,
 )
-from knowledge_assistant.knowledge_base.adapters.outbound.retrieval.pgvector_hybrid import (
+from knowledge_assistant.knowledge_base.adapters.outbound.retrieval.pgvector import (
     HYBRID_SEARCH_SQL,
-    PgVectorHybridRetriever,
+    PgVectorRetriever,
 )
+from knowledge_assistant.knowledge_base.application.ports import RetrievalStrategy
 from knowledge_assistant.knowledge_base.domain.models import Chunk, Document
 from knowledge_assistant.knowledge_base.domain.value_objects import (
     ChunkText,
@@ -81,13 +82,13 @@ async def seeded_session(session: AsyncSession) -> AsyncSession:
     return session
 
 
-class TestPgVectorHybridRetriever:
+class TestPgVectorRetriever:
     async def test_hybrid_ranking_puts_the_double_match_first(
         self, seeded_session: AsyncSession
     ) -> None:
         # The question vector points in the same direction as the policy chunks.
         embedding_provider = FakeEmbeddingProvider(dimension=DIM, fill=0.5)
-        retriever = PgVectorHybridRetriever(seeded_session, embedding_provider)
+        retriever = PgVectorRetriever(seeded_session, embedding_provider)
 
         results = await retriever.retrieve("Can I get a refund for a returned product?", limit=5)
 
@@ -103,16 +104,50 @@ class TestPgVectorHybridRetriever:
 
     async def test_limit_is_respected(self, seeded_session: AsyncSession) -> None:
         embedding_provider = FakeEmbeddingProvider(dimension=DIM, fill=0.5)
-        retriever = PgVectorHybridRetriever(seeded_session, embedding_provider)
+        retriever = PgVectorRetriever(seeded_session, embedding_provider)
 
         results = await retriever.retrieve("refund", limit=1)
 
         assert len(results) == 1
         assert results[0].document_title == "Return Policy"
 
+    async def test_explicit_sql_strategies_are_available(
+        self, seeded_session: AsyncSession
+    ) -> None:
+        embedding_provider = FakeEmbeddingProvider(dimension=DIM, fill=0.5)
+        retriever = PgVectorRetriever(seeded_session, embedding_provider)
+
+        dense = await retriever.retrieve(
+            "Can I get a refund for a returned product?",
+            limit=5,
+            strategy=RetrievalStrategy.DENSE,
+        )
+        lexical = await retriever.retrieve(
+            "Can I get a refund for a returned product?",
+            limit=5,
+            strategy=RetrievalStrategy.LEXICAL,
+        )
+        hybrid = await retriever.retrieve(
+            "Can I get a refund for a returned product?",
+            limit=5,
+            strategy=RetrievalStrategy.HYBRID,
+        )
+
+        assert [hit.document_title for hit in dense] == [
+            "Return Policy",
+            "Return Policy",
+            "Cafeteria Guide",
+        ]
+        assert [hit.document_title for hit in lexical] == ["Return Policy", "Return Policy"]
+        assert [hit.document_title for hit in hybrid] == [
+            "Return Policy",
+            "Return Policy",
+            "Cafeteria Guide",
+        ]
+
     async def test_no_rows_means_no_results(self, session: AsyncSession) -> None:
         embedding_provider = FakeEmbeddingProvider(dimension=DIM, fill=0.5)
-        retriever = PgVectorHybridRetriever(session, embedding_provider)
+        retriever = PgVectorRetriever(session, embedding_provider)
 
         assert await retriever.retrieve("anything", limit=5) == []
 

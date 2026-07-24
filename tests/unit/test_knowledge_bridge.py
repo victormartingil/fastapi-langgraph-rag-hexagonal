@@ -12,6 +12,7 @@ from knowledge_assistant.assistant.domain.exceptions import RetrievalUnavailable
 from knowledge_assistant.knowledge_base.application.exceptions import (
     KnowledgeBaseUnavailableError,
 )
+from knowledge_assistant.knowledge_base.application.ports import RetrievalStrategy
 from knowledge_assistant.knowledge_base.application.queries import SearchKnowledge
 from knowledge_assistant.knowledge_base.application.read_models import KnowledgeHit
 
@@ -25,7 +26,13 @@ class StubKnowledgeRetriever:
         self.hits = hits or []
         self.error = error
 
-    async def retrieve(self, question: str, limit: int) -> list[KnowledgeHit]:
+    async def retrieve(
+        self,
+        question: str,
+        limit: int,
+        *,
+        strategy: RetrievalStrategy = RetrievalStrategy.HYBRID,
+    ) -> list[KnowledgeHit]:
         if self.error is not None:
             raise self.error
         return self.hits[:limit]

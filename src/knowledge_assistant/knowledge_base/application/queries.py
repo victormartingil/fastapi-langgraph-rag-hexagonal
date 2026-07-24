@@ -3,6 +3,7 @@
 from knowledge_assistant.knowledge_base.application.ports import (
     DocumentRepository,
     OpenKnowledgeRetriever,
+    RetrievalStrategy,
 )
 from knowledge_assistant.knowledge_base.application.read_models import (
     DocumentPage,
@@ -44,6 +45,12 @@ class SearchKnowledge:
     def __init__(self, open_retriever: OpenKnowledgeRetriever) -> None:
         self._open_retriever = open_retriever
 
-    async def execute(self, question: str, limit: int) -> list[KnowledgeHit]:
+    async def execute(
+        self,
+        question: str,
+        limit: int,
+        *,
+        strategy: RetrievalStrategy = RetrievalStrategy.HYBRID,
+    ) -> list[KnowledgeHit]:
         async with self._open_retriever() as retriever:
-            return await retriever.retrieve(question, limit)
+            return await retriever.retrieve(question, limit, strategy=strategy)

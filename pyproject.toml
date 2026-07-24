@@ -209,6 +209,7 @@ forbidden_modules = ["knowledge_assistant.knowledge_base"]
 ignore_imports = [
     "knowledge_assistant.assistant.adapters.inbound.http.router -> knowledge_assistant.bootstrap",
     "knowledge_assistant.assistant.adapters.outbound.knowledge.in_process -> knowledge_assistant.knowledge_base.application.exceptions",
+    "knowledge_assistant.assistant.adapters.outbound.knowledge.in_process -> knowledge_assistant.knowledge_base.application.ports",
     "knowledge_assistant.assistant.adapters.outbound.knowledge.in_process -> knowledge_assistant.knowledge_base.application.queries",
 ]
 

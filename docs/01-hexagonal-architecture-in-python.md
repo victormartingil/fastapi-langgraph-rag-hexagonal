@@ -99,7 +99,7 @@ write them with.
 ### 4. Adapters — technology-prefixed classes
 
 ```
-SqlAlchemyDocumentRepository   PgVectorHybridRetriever
+SqlAlchemyDocumentRepository   PgVectorRetriever
 OllamaEmbeddingProvider        OpenAiEmbeddingProvider
 PdfTextExtractor               PlainTextExtractor
 PydanticAiAnswerGenerator
