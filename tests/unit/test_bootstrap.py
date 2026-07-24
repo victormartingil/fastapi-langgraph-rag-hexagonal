@@ -85,6 +85,10 @@ class TestEmbeddingDimensionGuard:
         assert container.embedding_config.model == "nomic-embed-text"
         assert container.embedding_config.dimension == 768
         assert container.embedding_config.base_url == "http://localhost:11434"
+        generator = container.answer_generator
+        assert isinstance(generator, PydanticAiAnswerGenerator)
+        assert generator.provider == "ollama"
+        assert generator.model_name == "qwen3.5:9b"
         await container.aclose()
 
 

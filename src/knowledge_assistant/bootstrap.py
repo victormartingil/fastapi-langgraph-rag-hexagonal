@@ -136,9 +136,9 @@ _EMBEDDING_PROVIDER_DEFAULTS: dict[str, dict[str, str]] = {
 
 _LLM_PROVIDER_DEFAULTS: dict[str, dict[str, str]] = {
     "ollama": {
-        "model": "llama3.1",
+        "model": "qwen3.5:9b",
         "base_url": "http://localhost:11434/v1",
-        "api_key": "ollama",  # Ollama's OpenAI-compatible endpoint ignores it
+        "api_key": "ollama",  # self-hosted Ollama ignores it
     },
     "openai": {
         "model": "gpt-4o-mini",
@@ -217,6 +217,7 @@ def _build_answer_generator(settings: Settings) -> tuple[AnswerGenerator, httpx.
     # call would hold the request (and its database session) open forever.
     client = httpx.AsyncClient(timeout=settings.llm_timeout_seconds)
     generator = PydanticAiAnswerGenerator(
+        provider=settings.llm_provider,
         model_name=settings.llm_model or defaults["model"],
         base_url=settings.llm_base_url or defaults["base_url"],
         api_key=api_key,

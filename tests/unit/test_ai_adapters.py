@@ -20,6 +20,7 @@ mock its HTTP boundary and trust its own test suite above it.
 """
 
 import json
+from typing import Literal
 
 import httpx
 import pytest
@@ -92,6 +93,35 @@ def completion_response(answer: str, source_indices: list[int]) -> httpx.Respons
                         ],
                     },
                     "finish_reason": "tool_calls",
+                }
+            ],
+            "usage": {"prompt_tokens": 1, "completion_tokens": 1, "total_tokens": 2},
+        },
+    )
+
+
+def native_completion_response(answer: str, source_indices: list[int]) -> httpx.Response:
+    """The provider-native structured response: JSON in assistant content."""
+    return httpx.Response(
+        200,
+        json={
+            "id": "chatcmpl-test",
+            "object": "chat.completion",
+            "created": 1,
+            "model": "test-model",
+            "choices": [
+                {
+                    "index": 0,
+                    "message": {
+                        "role": "assistant",
+                        "content": json.dumps(
+                            {
+                                "answer": answer,
+                                "source_indices": source_indices,
+                            }
+                        ),
+                    },
+                    "finish_reason": "stop",
                 }
             ],
             "usage": {"prompt_tokens": 1, "completion_tokens": 1, "total_tokens": 2},
@@ -270,11 +300,13 @@ class TestOpenAiEmbeddingProvider:
 
 def make_generator(
     *,
+    provider: Literal["ollama", "openai"] = "openai",
     base_url: str = "http://llm.test/v1",
     max_retries: int = 1,
     output_retries: int = 1,
 ) -> PydanticAiAnswerGenerator:
     return PydanticAiAnswerGenerator(
+        provider=provider,
         model_name="test-model",
         base_url=base_url,
         api_key="test-key",
@@ -286,7 +318,7 @@ def make_generator(
 
 class TestPydanticAiAnswerGenerator:
     @respx.mock
-    async def test_parses_structured_output_and_resolves_citations(self) -> None:
+    async def test_openai_uses_tool_output_and_resolves_citations(self) -> None:
         route = respx.post("http://llm.test/v1/chat/completions").mock(
             return_value=completion_response("30 days, unused, with receipt.", [1])
         )
@@ -300,11 +332,33 @@ class TestPydanticAiAnswerGenerator:
         assert answer.sources[0].document_title == "Return Policy"
         # The prompt carried the evidence as a NUMBERED source, plus content.
         sent = json.loads(route.calls[0].request.content)
+        assert "tools" in sent
+        assert "response_format" not in sent
         prompt = sent["messages"][-1]["content"]
         assert '"source_index": 1' in prompt
         assert "UNTRUSTED_DATA_JSON_START" in prompt
         assert "Return window?" in prompt
         assert "return any product within 30 days" in prompt
+
+    @respx.mock
+    async def test_ollama_uses_native_json_schema_output_without_tools(self) -> None:
+        route = respx.post("http://llm.test/v1/chat/completions").mock(
+            return_value=native_completion_response("30 days, unused, with receipt.", [1])
+        )
+        generator = make_generator(provider="ollama")
+
+        answer = await generator.generate("Return window?", [make_chunk("c1")])
+
+        assert answer.text == "30 days, unused, with receipt."
+        assert answer.sources[0].chunk_id == "c1"
+        sent = json.loads(route.calls[0].request.content)
+        assert "tools" not in sent
+        assert sent["reasoning_effort"] == "none"
+        assert sent["temperature"] == 0.0
+        assert sent["max_completion_tokens"] == 512
+        assert sent["response_format"]["type"] == "json_schema"
+        assert sent["response_format"]["json_schema"]["name"] == "AnswerPayload"
+        assert "source_indices" in json.dumps(sent["response_format"]["json_schema"])
 
     @respx.mock
     async def test_retries_then_rejects_out_of_range_citation_indices(self) -> None:
