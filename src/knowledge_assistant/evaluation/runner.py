@@ -244,7 +244,7 @@ async def _evaluate_live_full(
     embedding_model: str,
     llm_model: str,
     pgvector_image: str,
-) -> tuple[dict[str, object], dict[str, float]]:
+) -> tuple[dict[str, object], dict[str, object]]:
     async with (
         _live_database(pgvector_image) as session_factory,
         httpx.AsyncClient(base_url=ollama_url, timeout=180) as embedding_client,
@@ -303,10 +303,11 @@ async def _evaluate_generation(
     ask_question: AskQuestion,
     documents: list[dict[str, Any]],
     cases: list[dict[str, Any]],
-) -> dict[str, float]:
+) -> dict[str, object]:
     known_documents = frozenset(str(document["id"]) for document in documents)
     title_to_id = {str(document["title"]): str(document["id"]) for document in documents}
     observations: dict[str, AnswerObservation] = {}
+    case_rows: list[dict[str, object]] = []
     for case in cases:
         started = time.perf_counter()
         answer = await ask_question.execute(str(case["question"]), top_k=5)
@@ -321,15 +322,38 @@ async def _evaluate_generation(
             answer_text=answer.text,
             latency_ms=elapsed_ms,
         )
+        expected_case = _expected((case,))[0]
+        case_rows.append(
+            {
+                "case_id": str(case["id"]),
+                "answerable": expected_case.answerable,
+                "refused": not cited,
+                "cited_documents": list(cited),
+                "citation_valid": all(document_id in known_documents for document_id in cited),
+                "fact_coverage": _single_case_fact_coverage(expected_case, answer.text),
+                "latency_ms": elapsed_ms,
+            }
+        )
     expected = _expected(cases)
     values = list(observations.values())
     return {
-        "abstention_accuracy": abstention_accuracy(expected, observations),
-        "citation_validity": citation_validity(values),
-        "fact_coverage": fact_coverage(expected, observations),
-        "latency_p50_ms": percentile([item.latency_ms for item in values], 50),
-        "latency_p95_ms": percentile([item.latency_ms for item in values], 95),
+        "metrics": {
+            "abstention_accuracy": abstention_accuracy(expected, observations),
+            "citation_validity": citation_validity(values),
+            "fact_coverage": fact_coverage(expected, observations),
+            "latency_p50_ms": percentile([item.latency_ms for item in values], 50),
+            "latency_p95_ms": percentile([item.latency_ms for item in values], 95),
+        },
+        "cases": case_rows,
     }
+
+
+def _single_case_fact_coverage(case: ExpectedCase, answer_text: str) -> float | None:
+    if not case.answerable or not case.expected_facts:
+        return None
+    return sum(fact.casefold() in answer_text.casefold() for fact in case.expected_facts) / len(
+        case.expected_facts
+    )
 
 
 async def _ingest_documents(
@@ -518,8 +542,9 @@ def _markdown_report(report: Mapping[str, Any]) -> str:
     for mode, metrics in _retrieval_section(report).items():
         lines.append(f"| {mode} | {metrics['recall_at_5']:.3f} | {metrics['mrr']:.3f} |")
     if "generation" in report:
+        generation_metrics = cast(Mapping[str, float], report["generation"]["metrics"])
         lines.extend(["", "## Generation", ""])
-        lines.extend(f"- {name}: {value:.3f}" for name, value in report["generation"].items())
+        lines.extend(f"- {name}: {value:.3f}" for name, value in generation_metrics.items())
     calibration = report["retrieval"].get("calibration")
     if calibration:
         lines.extend(
@@ -553,7 +578,7 @@ async def _build_report(args: argparse.Namespace) -> dict[str, Any]:
         ollama_url=args.ollama_url if mode != "deterministic" else None,
         pgvector_image=args.pgvector_image if mode != "deterministic" else None,
     )
-    generation: dict[str, float] | None = None
+    generation: dict[str, object] | None = None
     if mode == "deterministic":
         retrieval = _evaluate_deterministic_retrieval(documents, cases)
     elif mode == "live-retrieval":
