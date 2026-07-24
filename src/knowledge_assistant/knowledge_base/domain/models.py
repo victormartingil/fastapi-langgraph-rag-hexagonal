@@ -16,6 +16,7 @@ from knowledge_assistant.knowledge_base.domain.exceptions import (
     InvalidDocumentMetadataError,
 )
 from knowledge_assistant.knowledge_base.domain.value_objects import (
+    ChunkId,
     ChunkText,
     DocumentId,
     EmbeddingVector,
@@ -47,7 +48,7 @@ class Chunk:
     vector is a valid intermediate state of the ingestion pipeline.
     """
 
-    id: DocumentId
+    id: ChunkId
     text: ChunkText
     position: int
     embedding: EmbeddingVector | None = None

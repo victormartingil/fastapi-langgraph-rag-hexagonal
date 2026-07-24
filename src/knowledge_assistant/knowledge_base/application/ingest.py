@@ -36,7 +36,11 @@ from knowledge_assistant.knowledge_base.domain.models import (
     Document,
     validate_document_metadata,
 )
-from knowledge_assistant.knowledge_base.domain.value_objects import DocumentId, EmbeddingVector
+from knowledge_assistant.knowledge_base.domain.value_objects import (
+    ChunkId,
+    DocumentId,
+    EmbeddingVector,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -124,7 +128,7 @@ class IngestDocument:
         document_id = DocumentId()
         chunks = tuple(
             Chunk(
-                id=DocumentId(),
+                id=ChunkId(),
                 text=text,
                 position=index,
                 embedding=embeddings[index],

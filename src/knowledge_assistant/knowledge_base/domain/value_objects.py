@@ -5,10 +5,11 @@ with the same UUID are the same id. They are immutable (frozen dataclasses)
 and validate themselves at construction time, so invalid states are
 unrepresentable — you simply cannot build a ``ChunkText("")``.
 
-Why not plain strings/uuids? Because ``ChunkText`` and ``DocumentId`` are
-*different concepts* that happen to share a representation. Wrapping them
-makes type signatures self-documenting and lets mypy catch mistakes such as
-passing a document title where a chunk text is expected.
+Why not plain strings/uuids? Because ``DocumentId``, ``ChunkId`` and
+``ChunkText`` are *different concepts* that happen to share simple
+representations. Wrapping them makes type signatures self-documenting and
+lets mypy catch mistakes such as passing a document id where a chunk id is
+expected.
 """
 
 import uuid
@@ -24,6 +25,21 @@ class DocumentId:
     @classmethod
     def from_string(cls, raw: str) -> "DocumentId":
         """Parse a DocumentId from its canonical string form."""
+        return cls(uuid.UUID(raw))
+
+    def __str__(self) -> str:
+        return str(self.value)
+
+
+@dataclass(frozen=True, slots=True)
+class ChunkId:
+    """Strongly typed identity of a Chunk."""
+
+    value: uuid.UUID = field(default_factory=uuid.uuid4)
+
+    @classmethod
+    def from_string(cls, raw: str) -> "ChunkId":
+        """Parse a ChunkId from its canonical string form."""
         return cls(uuid.UUID(raw))
 
     def __str__(self) -> str:
