@@ -62,8 +62,8 @@ from knowledge_assistant.knowledge_base.adapters.outbound.persistence.repository
 from knowledge_assistant.knowledge_base.adapters.outbound.retrieval.pgvector import (
     PgVectorRetriever,
 )
-from knowledge_assistant.knowledge_base.application.ports import RetrievalStrategy
 from knowledge_assistant.knowledge_base.application.queries import SearchKnowledge
+from knowledge_assistant.knowledge_base.application.retrieval import RetrievalStrategy
 from knowledge_assistant.knowledge_base.domain.chunking import chunk_text
 from knowledge_assistant.knowledge_base.domain.models import Chunk, Document
 from knowledge_assistant.knowledge_base.domain.value_objects import ChunkText, DocumentId

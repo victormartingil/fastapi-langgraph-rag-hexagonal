@@ -12,9 +12,9 @@ from knowledge_assistant.assistant.domain.exceptions import RetrievalUnavailable
 from knowledge_assistant.knowledge_base.application.exceptions import (
     KnowledgeBaseUnavailableError,
 )
-from knowledge_assistant.knowledge_base.application.ports import RetrievalStrategy
 from knowledge_assistant.knowledge_base.application.queries import SearchKnowledge
 from knowledge_assistant.knowledge_base.application.read_models import KnowledgeHit
+from knowledge_assistant.knowledge_base.application.retrieval import RetrievalStrategy
 
 
 class StubKnowledgeRetriever:

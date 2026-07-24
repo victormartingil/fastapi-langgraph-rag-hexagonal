@@ -32,9 +32,9 @@ from knowledge_assistant.assistant.domain.exceptions import (
     RetrievalUnavailableError,
 )
 from knowledge_assistant.assistant.domain.models import Answer, RetrievedChunk, Source
-from knowledge_assistant.knowledge_base.application.ports import RetrievalStrategy
 from knowledge_assistant.knowledge_base.application.queries import SearchKnowledge
 from knowledge_assistant.knowledge_base.application.read_models import KnowledgeHit
+from knowledge_assistant.knowledge_base.application.retrieval import RetrievalStrategy
 from tests.unit.fakes import (
     FailingKnowledgeSearch,
     FakeAnswerGenerator,
