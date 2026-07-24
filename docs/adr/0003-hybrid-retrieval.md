@@ -11,7 +11,7 @@ needs a ranked candidate list it can trust.
 
 ## Decision
 
-Implement **hybrid retrieval** in `PgVectorHybridRetriever` as one SQL
+Implement **hybrid retrieval** in `PgVectorRetriever` as one SQL
 statement with three parts:
 
 1. **Dense leg** — cosine distance over the `vector(768)` column (HNSW).

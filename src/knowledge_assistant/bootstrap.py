@@ -48,8 +48,8 @@ from knowledge_assistant.knowledge_base.adapters.outbound.extraction.plain_text 
 from knowledge_assistant.knowledge_base.adapters.outbound.persistence.repository import (
     SqlAlchemyDocumentRepository,
 )
-from knowledge_assistant.knowledge_base.adapters.outbound.retrieval.pgvector_hybrid import (
-    PgVectorHybridRetriever,
+from knowledge_assistant.knowledge_base.adapters.outbound.retrieval.pgvector import (
+    PgVectorRetriever,
 )
 from knowledge_assistant.knowledge_base.application.exceptions import (
     KnowledgeBaseUnavailableError,
@@ -368,7 +368,7 @@ def retriever_scope_factory(
     async def _scope() -> AsyncIterator[KnowledgeRetriever]:
         try:
             async with session_scope(session_factory) as session:
-                yield PgVectorHybridRetriever(
+                yield PgVectorRetriever(
                     session,
                     embedding_provider,
                     fetch_limit=fetch_limit,

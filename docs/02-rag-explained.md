@@ -63,7 +63,7 @@ next to the chunk in a `vector(768)` pgvector column.
 
 ## Step 4 — Hybrid retrieval
 
-`knowledge_base/adapters/outbound/retrieval/pgvector_hybrid.py`. Neither search style is
+`knowledge_base/adapters/outbound/retrieval/pgvector.py`. Neither search style is
 enough alone:
 
 |                     | Dense (vector) search           | Full-text (tsvector) search      |
@@ -107,7 +107,7 @@ The dense leg is language-agnostic by construction — the embedding model maps
 Spanish, German, or Chinese text into the same semantic space. The full-text
 leg needs language configuration at two levels:
 
-- **Tokenizing the question** (`_WORDS` in `pgvector_hybrid.py`) uses the
+- **Tokenizing the question** (`_WORDS` in `pgvector.py`) uses the
   Unicode-aware pattern `[^\W_]+`, so accented characters (`cómo`), umlauts
   (`für`), and CJK characters survive as terms instead of being shredded by
   an ASCII-only `\w+`.

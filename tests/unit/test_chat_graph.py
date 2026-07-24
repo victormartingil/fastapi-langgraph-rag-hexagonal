@@ -32,6 +32,7 @@ from knowledge_assistant.assistant.domain.exceptions import (
     RetrievalUnavailableError,
 )
 from knowledge_assistant.assistant.domain.models import Answer, RetrievedChunk, Source
+from knowledge_assistant.knowledge_base.application.ports import RetrievalStrategy
 from knowledge_assistant.knowledge_base.application.queries import SearchKnowledge
 from knowledge_assistant.knowledge_base.application.read_models import KnowledgeHit
 from tests.unit.fakes import (
@@ -146,7 +147,13 @@ class TestAskQuestionOverCompiledGraph:
                 finally:
                     self.currently_open -= 1
 
-            async def retrieve(self, question: str, limit: int) -> list[KnowledgeHit]:
+            async def retrieve(
+                self,
+                question: str,
+                limit: int,
+                *,
+                strategy: RetrievalStrategy = RetrievalStrategy.HYBRID,
+            ) -> list[KnowledgeHit]:
                 assert self.currently_open == 1
                 return [
                     KnowledgeHit(

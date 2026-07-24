@@ -1,4 +1,4 @@
-"""PgVectorHybridRetriever: hybrid search adapter (dense + full-text + RRF).
+"""PgVectorRetriever: hybrid search adapter (dense + full-text + RRF).
 
 HYBRID RETRIEVAL, explained by the code below:
 
@@ -55,7 +55,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from knowledge_assistant.knowledge_base.application.exceptions import (
     KnowledgeBaseUnavailableError,
 )
-from knowledge_assistant.knowledge_base.application.ports import EmbeddingProvider
+from knowledge_assistant.knowledge_base.application.ports import (
+    EmbeddingProvider,
+    RetrievalStrategy,
+)
 from knowledge_assistant.knowledge_base.application.read_models import KnowledgeHit
 from knowledge_assistant.knowledge_base.domain.exceptions import (
     EmbeddingProviderUnavailableError,
@@ -122,6 +125,55 @@ ORDER BY fused.rrf_score DESC, ch.id
 LIMIT :limit
 """
 
+DENSE_SEARCH_SQL = """
+WITH dense_knn AS (
+    SELECT c.id,
+           c.embedding <=> CAST(:query_embedding AS vector) AS distance
+    FROM chunks c
+    ORDER BY c.embedding <=> CAST(:query_embedding AS vector)
+    LIMIT :fetch_limit
+),
+dense AS (
+    SELECT id, ROW_NUMBER() OVER (ORDER BY distance, id) AS rank
+    FROM dense_knn
+)
+SELECT ch.id          AS chunk_id,
+       ch.document_id AS document_id,
+       doc.title      AS document_title,
+       ch.content     AS content,
+       1.0 / (:rrf_k + dense.rank) AS score
+FROM dense
+JOIN chunks ch ON ch.id = dense.id
+JOIN documents doc ON doc.id = ch.document_id
+ORDER BY score DESC, ch.id
+LIMIT :limit
+"""
+
+LEXICAL_SEARCH_SQL = """
+WITH full_text_top AS (
+    SELECT c.id,
+           ts_rank_cd(c.tsv, query) AS rank_score
+    FROM chunks c, to_tsquery(CAST(:tsconfig AS regconfig), :or_query) AS query
+    WHERE query <> ''::tsquery AND c.tsv @@ query
+    ORDER BY rank_score DESC, c.id
+    LIMIT :fetch_limit
+),
+full_text AS (
+    SELECT id, ROW_NUMBER() OVER (ORDER BY rank_score DESC, id) AS rank
+    FROM full_text_top
+)
+SELECT ch.id          AS chunk_id,
+       ch.document_id AS document_id,
+       doc.title      AS document_title,
+       ch.content     AS content,
+       1.0 / (:rrf_k + full_text.rank) AS score
+FROM full_text
+JOIN chunks ch ON ch.id = full_text.id
+JOIN documents doc ON doc.id = ch.document_id
+ORDER BY score DESC, ch.id
+LIMIT :limit
+"""
+
 _WORDS = re.compile(r"[^\W_]+")
 
 # PostgreSQL raises (and the API would 500) when a tsquery lexeme exceeds
@@ -155,7 +207,7 @@ def _to_or_query(question: str) -> str:
     return " | ".join(tokens)
 
 
-class PgVectorHybridRetriever:
+class PgVectorRetriever:
     """Implements the knowledge-base retrieval port with PostgreSQL + pgvector."""
 
     def __init__(
@@ -173,30 +225,38 @@ class PgVectorHybridRetriever:
         self._rrf_k = rrf_k
         self._tsconfig = tsconfig
 
-    async def retrieve(self, question: str, limit: int) -> list[KnowledgeHit]:
-        try:
-            [query_embedding] = await self._embedding_provider.embed([question])
-        except EmbeddingProviderUnavailableError as exc:
-            # The provider adapter translated the outage per the port
-            raise KnowledgeBaseUnavailableError(
-                "embedding provider unreachable after retries"
-            ) from exc
-        except httpx.HTTPError as exc:
-            # Defensive: a provider adapter that does not honor the contract
-            # (raises raw httpx). Transient outages -> 503; permanent errors
-            # (a 401 is a misconfiguration, not an outage) keep propagating.
-            if not is_transient_http_error(exc):
-                raise
-            raise KnowledgeBaseUnavailableError(
-                "embedding provider unreachable after retries"
-            ) from exc
+    async def retrieve(
+        self,
+        question: str,
+        limit: int,
+        *,
+        strategy: RetrievalStrategy = RetrievalStrategy.HYBRID,
+    ) -> list[KnowledgeHit]:
+        vector_literal = ""
+        if strategy in {RetrievalStrategy.DENSE, RetrievalStrategy.HYBRID}:
+            try:
+                [query_embedding] = await self._embedding_provider.embed([question])
+            except EmbeddingProviderUnavailableError as exc:
+                # The provider adapter translated the outage per the port
+                raise KnowledgeBaseUnavailableError(
+                    "embedding provider unreachable after retries"
+                ) from exc
+            except httpx.HTTPError as exc:
+                # Defensive: a provider adapter that does not honor the contract
+                # (raises raw httpx). Transient outages -> 503; permanent errors
+                # (a 401 is a misconfiguration, not an outage) keep propagating.
+                if not is_transient_http_error(exc):
+                    raise
+                raise KnowledgeBaseUnavailableError(
+                    "embedding provider unreachable after retries"
+                ) from exc
 
-        # pgvector accepts the canonical text form "[0.1, 0.2, ...]".
-        vector_literal = "[" + ",".join(repr(v) for v in query_embedding.values) + "]"
+            # pgvector accepts the canonical text form "[0.1, 0.2, ...]".
+            vector_literal = "[" + ",".join(repr(v) for v in query_embedding.values) + "]"
 
         try:
             result = await self._session.execute(
-                text(HYBRID_SEARCH_SQL),
+                text(_sql_for(strategy)),
                 {
                     "query_embedding": vector_literal,
                     "or_query": _to_or_query(question),
@@ -226,3 +286,14 @@ class PgVectorHybridRetriever:
             )
             for row in result
         ]
+
+
+def _sql_for(strategy: RetrievalStrategy) -> str:
+    match strategy:
+        case RetrievalStrategy.DENSE:
+            return DENSE_SEARCH_SQL
+        case RetrievalStrategy.LEXICAL:
+            return LEXICAL_SEARCH_SQL
+        case RetrievalStrategy.HYBRID:
+            return HYBRID_SEARCH_SQL
+    raise AssertionError(f"unsupported retrieval strategy: {strategy!r}")

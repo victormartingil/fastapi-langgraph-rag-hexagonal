@@ -5,6 +5,7 @@ from knowledge_assistant.assistant.domain.models import RetrievedChunk
 from knowledge_assistant.knowledge_base.application.exceptions import (
     KnowledgeBaseUnavailableError,
 )
+from knowledge_assistant.knowledge_base.application.ports import RetrievalStrategy
 from knowledge_assistant.knowledge_base.application.queries import SearchKnowledge
 
 
@@ -21,7 +22,11 @@ class InProcessKnowledgeSearchAdapter:
 
     async def search(self, question: str, limit: int) -> list[RetrievedChunk]:
         try:
-            hits = await self._search_knowledge.execute(question, limit)
+            hits = await self._search_knowledge.execute(
+                question,
+                limit,
+                strategy=RetrievalStrategy.HYBRID,
+            )
         except KnowledgeBaseUnavailableError as exc:
             raise RetrievalUnavailableError(str(exc)) from exc
         return [
