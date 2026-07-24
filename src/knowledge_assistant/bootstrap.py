@@ -161,7 +161,7 @@ _EMBEDDING_PROVIDER_DEFAULTS: dict[str, dict[str, str]] = {
 
 _LLM_PROVIDER_DEFAULTS: dict[str, dict[str, str]] = {
     "ollama": {
-        "model": "qwen3.5:9b",
+        "model": "qwen3.5:2b-q4_K_M",
         "base_url": "http://localhost:11434/v1",
         "api_key": "ollama",  # self-hosted Ollama ignores it
     },

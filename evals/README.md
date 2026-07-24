@@ -19,7 +19,7 @@ the real SQL strategies (`dense`, `lexical`, `hybrid`):
 TESTCONTAINERS_RYUK_DISABLED=true \
 uv run --locked python -m knowledge_assistant.evaluation.runner \
   --mode live-retrieval \
-  --baseline evals/live-baseline-qwen3.5-9b.json
+  --baseline evals/live-baseline-qwen3.5-2b-q4_K_M.json
 ```
 
 Run live generation through LangGraph + Ollama:
@@ -28,7 +28,7 @@ Run live generation through LangGraph + Ollama:
 TESTCONTAINERS_RYUK_DISABLED=true \
 uv run --locked python -m knowledge_assistant.evaluation.runner \
   --mode live-full \
-  --llm-model qwen3.5:9b
+  --llm-model qwen3.5:2b-q4_K_M
 ```
 
 `live-full` stores one row per `case_id` with refusal, cited document ids,
