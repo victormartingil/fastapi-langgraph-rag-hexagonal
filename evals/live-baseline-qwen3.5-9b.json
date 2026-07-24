@@ -1,0 +1,36 @@
+{
+  "dataset": {
+    "cases": 30,
+    "documents": 12,
+    "version": 1
+  },
+  "environment": {
+    "embedding_model": "nomic-embed-text",
+    "llm_model": null,
+    "mode": "live-retrieval",
+    "ollama_url": "http://localhost:11434",
+    "pgvector_image": "pgvector/pgvector:0.8.1-pg16@sha256:33198da2828a14c30348d2ccb4750833d5ed9a44c88d840a0e523d7417120337"
+  },
+  "retrieval": {
+    "calibration": {
+      "answerable_recall": 0.0,
+      "false_positives": 0,
+      "meets_minimum_answerable_recall": false,
+      "threshold": 0.03278688524690164
+    },
+    "metrics": {
+      "dense": {
+        "mrr": 1.0,
+        "recall_at_5": 1.0
+      },
+      "hybrid": {
+        "mrr": 0.9545454545454546,
+        "recall_at_5": 1.0
+      },
+      "lexical": {
+        "mrr": 0.856060606060606,
+        "recall_at_5": 0.8636363636363636
+      }
+    }
+  }
+}
