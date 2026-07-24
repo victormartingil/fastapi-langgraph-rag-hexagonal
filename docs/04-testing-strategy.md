@@ -27,7 +27,7 @@
 | architecture      | `uv run --locked pytest tests/architecture` | 3 | No |
 | integration       | `uv run --locked pytest tests/integration`  | 18 | Yes |
 | e2e               | `uv run --locked pytest tests/e2e`          | 31 | Yes |
-| eval              | `uv run --locked pytest tests/evals`        | 6 | No |
+| eval              | `uv run --locked pytest tests/evals`        | 8 | No |
 
 Markers are registered in `pyproject.toml`, so you can also select by mark:
 `uv run --locked pytest -m "not integration and not e2e"`.
@@ -49,11 +49,16 @@ The versioned `evals/` corpus measures RAG behavior:
 | answer coverage | expected fact-phrase coverage |
 | operational cost | latency p50/p95 |
 
-The committed lexical baseline is reproducible. Dense, hybrid, and full
-generation modes are optional live evaluations because their result depends
-on the selected model and machine. Regression thresholds—5 percentage points
-for Recall@5 and 0.05 for MRR—catch movement; they do not certify a deployment.
-Each real corpus needs representative and adversarial cases of its own.
+The committed lexical baseline is reproducible and offline. Live retrieval is
+also versioned, but it is explicitly model/infrastructure-bound:
+Testcontainers starts pgvector, Alembic builds the schema, the real chunker
+seeds deterministic document/chunk IDs, Ollama creates embeddings, and the
+same PostgreSQL adapter runs `dense`, `lexical`, and `hybrid` SQL. Full
+generation additionally executes the LangGraph workflow and Ollama LLM.
+
+Regression thresholds—5 percentage points for Recall@5 and 0.05 for MRR—catch
+movement; they do not certify a deployment. Each real corpus needs
+representative and adversarial cases of its own.
 
 This separation prevents flaky model behavior from weakening CI while also
 preventing high code coverage from being mistaken for RAG quality.
