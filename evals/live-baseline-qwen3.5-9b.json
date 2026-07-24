@@ -9,7 +9,7 @@
     "llm_model": null,
     "mode": "live-retrieval",
     "ollama_url": "http://localhost:11434",
-    "pgvector_image": "pgvector/pgvector:0.8.1-pg16@sha256:33198da2828a14c30348d2ccb4750833d5ed9a44c88d840a0e523d7417120337"
+    "pgvector_image": "pgvector/pgvector:0.8.5-pg16@sha256:1d533553fefe4f12e5d80c7b80622ba0c382abb5758856f52983d8789179f0fb"
   },
   "retrieval": {
     "calibration": {

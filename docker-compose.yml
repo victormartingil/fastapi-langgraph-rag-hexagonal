@@ -7,7 +7,7 @@
 
 services:
   db:
-    image: pgvector/pgvector:0.8.1-pg16@sha256:33198da2828a14c30348d2ccb4750833d5ed9a44c88d840a0e523d7417120337
+    image: pgvector/pgvector:0.8.5-pg16@sha256:1d533553fefe4f12e5d80c7b80622ba0c382abb5758856f52983d8789179f0fb
     restart: unless-stopped  # a crashed db self-heals; data is on the volume
     # Local-dev-only credentials — never reuse these outside your machine.
     environment:
@@ -25,7 +25,7 @@ services:
       retries: 10
 
   ollama:
-    image: ollama/ollama:0.13.1@sha256:8850b8b33936b9fb246e7b3e02849941f1151ea847e5fb15511f17de9589aea1
+    image: ollama/ollama:0.32.3@sha256:ec24bcaa2a810eb74171ce7c517813ef4821ed678988845e8d76cf62467036d4
     restart: unless-stopped  # a crashed model server self-heals
     ports:
       - "11434:11434"
@@ -40,7 +40,7 @@ services:
   # One-shot bootstrap: pull the embedding and chat models, then exit.
   # The api service waits for this to complete successfully.
   ollama-init:
-    image: ollama/ollama:0.13.1@sha256:8850b8b33936b9fb246e7b3e02849941f1151ea847e5fb15511f17de9589aea1
+    image: ollama/ollama:0.32.3@sha256:ec24bcaa2a810eb74171ce7c517813ef4821ed678988845e8d76cf62467036d4
     depends_on:
       ollama:
         condition: service_healthy
@@ -88,7 +88,7 @@ services:
   # Optional local observability stack:
   # KA_OTEL_ENABLED=true docker compose --profile observability up --build
   otel-collector:
-    image: otel/opentelemetry-collector-contrib:0.136.0@sha256:45392d534c1edcc809c2d112394029246bc679d2ae5ea7081414a1fc74f2c621
+    image: otel/opentelemetry-collector-contrib:0.157.0@sha256:f2f01157055a9b2aab9df7118e1f1c9abf345e99b23bc7a2bc791db374a7d0f6
     profiles: ["observability"]
     command: ["--config=/etc/otelcol-contrib/config.yaml"]
     volumes:
@@ -99,7 +99,7 @@ services:
       - "4318:4318"
 
   jaeger:
-    image: jaegertracing/jaeger:2.11.0@sha256:b585df1b6299bbbd16bf7c679da30389349736e4b6bc8f4f500142a75bf26ca8
+    image: jaegertracing/jaeger:2.20.0@sha256:46a886260e04002d8f45e213fc39063fa11a50446048fdaa64786fc0840cb9f8
     profiles: ["observability"]
     ports:
       - "16686:16686"

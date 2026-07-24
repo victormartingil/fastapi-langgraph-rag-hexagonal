@@ -154,7 +154,7 @@ PRs from now — including PRs written by AI agents (see `.ai-guidelines.md`).
 ## Integration tests — real PostgreSQL, thrown away every run
 
 `tests/integration` uses [testcontainers] to start
-the same digest-pinned `pgvector/pgvector:0.8.1-pg16` image as Compose,
+the same digest-pinned `pgvector/pgvector:0.8.5-pg16` image as Compose,
 then **runs the Alembic migrations** before yielding a session. That means
 the migration itself is under test: if the schema cannot be built from
 scratch, everything fails loudly at fixture setup.

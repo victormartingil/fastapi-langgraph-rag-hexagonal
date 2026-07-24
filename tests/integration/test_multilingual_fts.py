@@ -10,7 +10,7 @@ a real database migrated with `KA_FTS_LANGUAGE=spanish`:
   FTS leg silently drops out and the dense leg carries the answer alone,
 - the expected stemming/stopword behavior itself, asserted directly in SQL so
   the test documents what PostgreSQL actually does (verified empirically on
-  pgvector/pgvector:0.8.1-pg16).
+  pgvector/pgvector:0.8.5-pg16).
 
 The suite runs its own container because the language is fixed at migration
 time: it cannot share the English session container from the root conftest.
@@ -56,7 +56,7 @@ def spanish_database_url() -> Iterator[str]:
     """A second container, migrated with the Spanish FTS configuration."""
     from testcontainers.postgres import PostgresContainer
 
-    with PostgresContainer("pgvector/pgvector:0.8.1-pg16") as postgres:
+    with PostgresContainer("pgvector/pgvector:0.8.5-pg16") as postgres:
         host = postgres.get_container_host_ip()
         port = postgres.get_exposed_port(5432)
         url = (

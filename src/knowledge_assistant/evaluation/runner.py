@@ -75,8 +75,8 @@ from knowledge_assistant.platform.database.session import (
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 DEFAULT_PGVECTOR_IMAGE = (
-    "pgvector/pgvector:0.8.1-pg16@"
-    "sha256:33198da2828a14c30348d2ccb4750833d5ed9a44c88d840a0e523d7417120337"
+    "pgvector/pgvector:0.8.5-pg16@"
+    "sha256:1d533553fefe4f12e5d80c7b80622ba0c382abb5758856f52983d8789179f0fb"
 )
 EVAL_NAMESPACE = uuid.UUID("12b02b69-69c4-5f1a-b560-5ad861c1d661")
 TOKEN_PATTERN = re.compile(r"[^\W_]+", re.UNICODE)
