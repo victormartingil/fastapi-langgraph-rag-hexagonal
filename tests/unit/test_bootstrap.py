@@ -6,6 +6,8 @@ prove that configuration knobs actually reach the objects they claim to
 control (a knob nobody reads is a lie in config.py).
 """
 
+import asyncio
+
 import httpx
 import pytest
 from pydantic import ValidationError
@@ -128,6 +130,36 @@ class TestConfigKnobsAreWired:
         with pytest.raises(ExceptionGroup, match="container shutdown"):
             await container.aclose()
 
+        assert container._llm_http_client.is_closed
+
+    async def test_cancellation_during_close_still_finishes_cleanup(self) -> None:
+        """A cancelled shutdown must still release later resources before the
+        cancellation is propagated back to the lifespan."""
+
+        class SlowClient(httpx.AsyncClient):
+            def __init__(self) -> None:
+                super().__init__()
+                self.started = asyncio.Event()
+                self.release = asyncio.Event()
+
+            async def aclose(self) -> None:
+                self.started.set()
+                await self.release.wait()
+                await super().aclose()
+
+        container = build_container(Settings())
+        slow_client = SlowClient()
+        container._embedding_http_client = slow_client
+
+        close_task = asyncio.create_task(container.aclose())
+        await slow_client.started.wait()
+        close_task.cancel()
+        slow_client.release.set()
+
+        with pytest.raises(asyncio.CancelledError):
+            await close_task
+
+        assert slow_client.is_closed
         assert container._llm_http_client.is_closed
 
     # KA_RETRIEVAL_TOP_K reaches AskQuestion as the default top_k; that path
