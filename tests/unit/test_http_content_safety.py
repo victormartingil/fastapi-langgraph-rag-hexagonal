@@ -52,8 +52,8 @@ class TestHttpLoggingPrivacy:
         register_error_handlers(app)
         secret_question = "private question: client account 998877"
 
-        @app.get("/domain-error")
-        async def domain_error() -> None:
+        @app.get("/domain-error/{item_id}")
+        async def domain_error(item_id: str) -> None:
             raise InvalidQuestionError(secret_question)
 
         with capture_logs() as logs:
@@ -62,7 +62,7 @@ class TestHttpLoggingPrivacy:
                 base_url="http://testserver",
             ) as client:
                 response = await client.get(
-                    "/domain-error",
+                    "/domain-error/private-path-client-123",
                     headers={CORRELATION_ID_HEADER: "safe-request-1"},
                 )
 
@@ -70,11 +70,12 @@ class TestHttpLoggingPrivacy:
         assert response.json()["detail"] == secret_question
         assert response.headers[CORRELATION_ID_HEADER] == "safe-request-1"
         assert secret_question not in str(logs)
+        assert "private-path-client-123" not in str(logs)
         assert {
             "event": "domain_error",
             "error": "InvalidQuestionError",
             "status": 422,
-            "path": "/domain-error",
+            "path": "/domain-error/{item_id}",
             "correlation_id": "safe-request-1",
             "log_level": "info",
         } in logs
