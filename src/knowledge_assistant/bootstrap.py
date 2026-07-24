@@ -12,9 +12,10 @@ implementation is actually used?", this file is the entire answer.
 (Spring developers: this module plays the role of `@Configuration`.)
 """
 
+import asyncio
 import secrets
 from collections.abc import AsyncIterator, Sequence
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, suppress
 from dataclasses import dataclass
 from typing import Annotated
 
@@ -98,9 +99,24 @@ class Container:
 
         Each resource is closed independently: one failing close must not
         skip the rest. Failures are logged loudly and re-raised as a group,
-        so a broken shutdown is visible rather than silent.
+        so a broken shutdown is visible rather than silent. If shutdown is
+        cancelled, cleanup keeps running to completion and the cancellation is
+        propagated afterwards.
         """
+        close_task = asyncio.create_task(self._close_resources())
+        try:
+            await asyncio.shield(close_task)
+        except asyncio.CancelledError:
+            # Cancellation wins the shutdown contract. Individual close
+            # failures are already logged by _close_resources; the caller
+            # still needs to observe the cancellation.
+            with suppress(BaseException):
+                await close_task
+            raise
+
+    async def _close_resources(self) -> None:
         failures: list[Exception] = []
+        cancellation: asyncio.CancelledError | None = None
         for name, close in (
             ("embedding_http_client", self._embedding_http_client.aclose),
             ("llm_http_client", self._llm_http_client.aclose),
@@ -108,9 +124,18 @@ class Container:
         ):
             try:
                 await close()
+            except asyncio.CancelledError as exc:
+                logger.warning("container_close_cancelled", resource=name)
+                cancellation = exc
             except Exception as exc:
-                logger.exception("container_close_failed", resource=name)
+                logger.error(
+                    "container_close_failed",
+                    resource=name,
+                    exception_type=type(exc).__qualname__,
+                )
                 failures.append(exc)
+        if cancellation is not None:
+            raise cancellation
         if failures:
             raise ExceptionGroup("container shutdown had failures", failures)
 
