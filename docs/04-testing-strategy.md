@@ -60,6 +60,13 @@ Regression thresholds—5 percentage points for Recall@5 and 0.05 for MRR—catc
 movement; they do not certify a deployment. Each real corpus needs
 representative and adversarial cases of its own.
 
+The live report is case-oriented on purpose. When a metric regresses, inspect
+the failing `case_id` before changing thresholds. Retrieval failures usually
+mean the chunking, FTS query, dense embedding, or RRF balance is wrong for the
+corpus. Generation failures usually mean citation handling, abstention,
+prompting, or model capability needs attention. Do not hide either class of
+failure by weakening the deterministic tests.
+
 This separation prevents flaky model behavior from weakening CI while also
 preventing high code coverage from being mistaken for RAG quality.
 It follows the distinction in Google's
@@ -68,6 +75,11 @@ between reliable infrastructure and measured model behavior. The corpus also
 contains indirect-injection and competing-source cases; deployment-specific
 red teaming should extend it following
 [adversarial testing guidance](https://developers.google.com/machine-learning/guides/adv-testing).
+
+The current quality snapshot and local model matrix live in
+[`docs/12-quality-reference.md`](12-quality-reference.md). It records the
+verified PostgreSQL+Ollama retrieval metrics, the default model choice, and
+the reason citation validity is tracked separately from factual entailment.
 
 ## Unit tests — fakes, not mocks
 
