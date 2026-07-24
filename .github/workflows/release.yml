@@ -5,7 +5,9 @@ on:
     tags: ["v*"]
 
 permissions:
-  contents: read
+  attestations: write
+  contents: write
+  id-token: write
   packages: write
 
 jobs:
@@ -35,6 +37,24 @@ jobs:
                   f"Release tag {actual_tag!r} does not match package version "
                   f"{expected_tag!r}"
               )
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          enable-cache: true
+
+      - name: Build Python artifacts and SBOM
+        run: |
+          uv python install 3.14
+          uv sync --locked --python 3.14
+          uv build
+          uv export --locked --no-dev --format cyclonedx1.5 --output-file dist/sbom.cdx.json
+          (cd dist && sha256sum * > SHA256SUMS)
+
+      - name: Attest Python artifacts
+        uses: actions/attest-build-provenance@977bb373ede98d70efdf65b84cb5f73e068dcc2a # v3.0.0
+        with:
+          subject-path: dist/*
 
       - name: Set up Buildx
         uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
@@ -67,3 +87,16 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           provenance: mode=max
           sbom: true
+
+      - name: Attach Python artifacts to GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" dist/* --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" dist/* \
+              --verify-tag \
+              --title "$GITHUB_REF_NAME" \
+              --notes "Automated release artifacts for $GITHUB_REF_NAME."
+          fi
