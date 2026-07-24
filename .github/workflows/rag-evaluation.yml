@@ -1,0 +1,71 @@
+name: Live RAG evaluation
+
+on:
+  schedule:
+    - cron: "17 5 * * 1"
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "Evaluation mode"
+        required: true
+        default: "live-retrieval"
+        type: choice
+        options:
+          - live-retrieval
+          - live-full
+      llm-model:
+        description: "Ollama chat model for live-full"
+        required: true
+        default: "qwen3.5:9b"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  live-rag-evaluation:
+    name: PostgreSQL + Ollama RAG evaluation
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          enable-cache: true
+
+      - name: Install Python and locked dependencies
+        run: |
+          uv python install 3.14
+          uv sync --locked --python 3.14
+
+      - name: Start Ollama
+        run: |
+          docker compose up -d ollama
+          docker compose exec -T ollama ollama pull nomic-embed-text
+          if [ "${{ inputs.mode || 'live-retrieval' }}" = "live-full" ]; then
+            docker compose exec -T ollama ollama pull "${{ inputs.llm-model || 'qwen3.5:9b' }}"
+          fi
+
+      - name: Run live RAG evaluation
+        env:
+          TESTCONTAINERS_RYUK_DISABLED: "true"
+        run: |
+          mkdir -p eval-artifacts
+          uv run --locked --python 3.14 python -m knowledge_assistant.evaluation.runner \
+            --mode "${{ inputs.mode || 'live-retrieval' }}" \
+            --llm-model "${{ inputs.llm-model || 'qwen3.5:9b' }}" \
+            --baseline evals/live-baseline-qwen3.5-9b.json \
+            --output eval-artifacts/report.json
+
+      - name: Upload evaluation report
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: live-rag-evaluation
+          path: eval-artifacts/
+          retention-days: 30
+          if-no-files-found: error
