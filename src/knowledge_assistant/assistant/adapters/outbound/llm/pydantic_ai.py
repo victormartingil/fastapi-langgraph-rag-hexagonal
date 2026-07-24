@@ -246,7 +246,11 @@ class PydanticAiAnswerGenerator:
             # permanent error, and a success shape for a degraded answer.
             if not _is_transient_llm_error(exc):
                 raise
-            logger.exception("llm_generation_failed", question_length=len(question))
+            logger.error(
+                "llm_generation_failed",
+                exception_type=type(exc).__qualname__,
+                question_length=len(question),
+            )
             msg = (
                 "The answer-generation service is temporarily unavailable "
                 "(LLM unreachable after retries). Please try again shortly."
