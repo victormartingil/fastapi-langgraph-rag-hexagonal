@@ -123,8 +123,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         try:
             async with container.session_factory() as session:
                 await session.execute(text("SELECT 1"))
-        except Exception:
-            logger.exception("health_check_failed")
+        except Exception as exc:
+            logger.error(
+                "health_check_failed",
+                exception_type=type(exc).__qualname__,
+                path="/health",
+            )
             response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE
             return {"status": "unhealthy"}
         return {"status": "ok"}

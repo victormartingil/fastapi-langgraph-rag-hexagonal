@@ -95,7 +95,13 @@ def register_error_handlers(app: FastAPI) -> None:
     @app.exception_handler(DomainError)
     async def domain_error_handler(request: Request, exc: DomainError) -> JSONResponse:
         status = _status_for(exc)
-        logger.info("domain_error", error=type(exc).__name__, detail=str(exc), status=status)
+        logger.info(
+            "domain_error",
+            error=type(exc).__name__,
+            status=status,
+            path=request.url.path,
+            correlation_id=_correlation_id(),
+        )
         return JSONResponse(
             status_code=status,
             content=_envelope(str(exc), type(exc).__name__),
